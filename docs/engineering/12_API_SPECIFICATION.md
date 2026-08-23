@@ -1,0 +1,113 @@
+# 12 — API Specification
+
+**Authoritative for:** all v1 API surface. Entity shapes referenced here are owned by `02_DOMAIN_MODEL_AND_STATE_MACHINES.md` — request/response bodies below reference those fields, they don't redefine them.
+**Auth:** JWT bearer, per `15_SECURITY_AND_PRIVACY.md` §1 (not redefined here).
+
+---
+
+## 1. Conventions
+
+- All endpoints scoped to the authenticated user (`user_id` from JWT, never from request body) — see `15` §2 for authorization rule.
+- Standard error shape: `{error_code, message, details?}`.
+- Pagination: `?cursor=&limit=` for list endpoints, applied to Commitments, Event Log queries, and Analytics history.
+- Mutations that trigger scheduling side effects return the affected Scheduled Block(s) inline rather than requiring a follow-up fetch.
+- **Idempotency (resolved):** every scheduling-mutation endpoint — block move (§6), session start/pause/resume/finish (§7), progress report (§4) — requires an `Idempotency-Key` request header. The server persists the key against the resulting state change (`13_DATABASE_SPECIFICATION.md` §1) and, on a retried request with the same key, returns the original result rather than re-applying the mutation. This is a contract requirement, not an implementation footnote — a client that omits the header on one of these endpoints receives a validation error.
+
+## 2. Goals
+
+| Method | Route | Purpose |
+|---|---|---|
+| POST | `/goals` | Create (from interview flow or direct) |
+| GET | `/goals/{id}` | Fetch, incl. current Planning State/Lifecycle |
+| PATCH | `/goals/{id}` | Update (title, deadline) — not state transitions |
+| POST | `/goals/{id}/pause` | Explicit user action → `02` §2.2 Paused transition |
+| POST | `/goals/{id}/abandon` | Explicit user action → `02` §2.1 Abandoned transition |
+| POST | `/goals/{id}/risk-response` | User response to an At-Risk prompt (`05` §5 options) |
+
+## 3. Roadmaps / Import
+
+| Method | Route | Purpose |
+|---|---|---|
+| POST | `/roadmaps/import` | Upload document/screenshot → returns interpretation proposal (`06` §1.2–1.3), not committed |
+| GET | `/roadmaps/import/{importId}` | Fetch current interpretation state for Review screen |
+| PATCH | `/roadmaps/import/{importId}` | User edits (strike sections, mark known, swap resource) — updates the proposal, not committed entities |
+| POST | `/roadmaps/import/{importId}/approve` | Commits approved subset → creates Roadmap/Milestone/Commitment/Resource entities, hands off to Scheduling Engine |
+
+## 4. Commitments / Tasks
+
+| Method | Route | Purpose |
+|---|---|---|
+| POST | `/commitments` | Direct task creation (entry point C, `06`'s pipeline not required) |
+| GET | `/commitments/{id}` | Fetch full detail incl. attached Resources |
+| PATCH | `/commitments/{id}` | Update fields (not work_state directly — see below) |
+| POST | `/commitments/{id}/progress` | Report completion/partial — triggers `02` §2.3 transition |
+| POST | `/commitments/{id}/progress/correct` | Correct belief-state completion % without touching Actual Session history (`02` §1.7) |
+
+## 5. Recurring Intentions
+
+| Method | Route | Purpose |
+|---|---|---|
+| POST | `/recurring-intentions` | Create |
+| GET | `/recurring-intentions/{id}` | Fetch incl. current week's remaining target |
+| PATCH | `/recurring-intentions/{id}/target` | User- or Atlas-suggested (Collaborative-tier, requires confirmation) target change |
+
+## 6. Scheduling
+
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `/schedule/today` | Now/Next/Later view (`14` §2) |
+| GET | `/schedule/week` | Calendar view |
+| POST | `/schedule/blocks/{id}/move` | Manual drag/edit — sets `user_moved_flag` (`02` §1.6, `05` §7) |
+| GET | `/schedule/blocks/{id}/explanation` | Returns the Event Log `reason` for the current placement (`10` §4) |
+
+## 7. Focus / Execution
+
+| Method | Route | Purpose |
+|---|---|---|
+| POST | `/blocks/{id}/session/start` | Creates Actual Session, `02` §2.6 |
+| POST | `/blocks/{id}/session/pause` | — |
+| POST | `/blocks/{id}/session/resume` | — |
+| POST | `/blocks/{id}/session/finish` | Prompts completion report (`09` §5) |
+
+## 8. Resources
+
+| Method | Route | Purpose |
+|---|---|---|
+| POST | `/commitments/{id}/resources` | Attach |
+| DELETE | `/commitments/{id}/resources/{resourceId}` | Detach/replace |
+| POST | `/resources/{id}/feedback` | Single-reaction feedback (`06` §3.2 tier 1) |
+
+## 9. Preferences
+
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `/preferences` | List |
+| POST | `/preferences` | Create (only via explicit confirmation flow, `08` §2) |
+| PATCH | `/preferences/{id}` | Edit/disable |
+| DELETE | `/preferences/{id}` | Delete |
+
+## 10. Analytics
+
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `/analytics/summary` | Headline metrics (`11` §2) |
+| GET | `/analytics/progress-breakdown` | Planned/Executed/Achieved (`11` §1) |
+| GET | `/analytics/why-falling-behind` | Dominant-factor analysis (`11` §4) |
+
+## 11. Event Log / History
+
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `/events?entity_type=&entity_id=` | Raw query for "what changed" UI and debugging |
+| POST | `/events/undo` | Reverses last N events for a given entity (`10` §4) |
+
+## 12. Data / Privacy
+
+| Method | Route | Purpose |
+|---|---|---|
+| POST | `/account/export` | Full data export (`15` §3) |
+| DELETE | `/account` | Full deletion, not soft-flag (`15` §3) |
+
+## 13. Genuine Gaps / Requires Product Decision
+
+*(Resolved — see §1 above: mandatory `Idempotency-Key` header on scheduling-mutation endpoints, deduplicated server-side.)*
