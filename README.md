@@ -10,7 +10,7 @@ Full product behavior is defined in [`docs/product/atlas-master-product-spec-v1.
 
 | Layer | Technology |
 |---|---|
-| Backend | Java 17, Spring Boot 3.3.x |
+| Backend | Java 17, Spring Boot 4.1.x |
 | Database | MySQL (Aiven), Flyway migrations |
 | Frontend | React, TypeScript, Vite, Tailwind CSS v4 |
 | CI | GitHub Actions |
