@@ -295,3 +295,43 @@ RELATED DOCUMENTS: 02_DOMAIN_MODEL_AND_STATE_MACHINES.md §2.3, §1.4,
    entry's ID — this preserves the same immutable, append-only history
    discipline Atlas's own Event Log requires of itself
    (`10_EVENT_LOG.md` §3).
+
+---
+
+## Technical Decisions Made During Development
+
+### DEC-0004
+```
+DATE: 2026-09-13
+TYPE: Implementation
+DECISION: BCrypt selected for password hashing; minimum password length set to 8 characters; V1 Flyway migration created.
+STATUS: Approved
+CONTEXT: FOUND-002 (Auth/JWT) implementation. 15_SECURITY_AND_PRIVACY.md §1 specifies password hashing via a standard modern algorithm (bcrypt/argon2) as an implementation detail. The repository had no Flyway V1 migration committed (only .gitkeep).
+OPTIONS CONSIDERED:
+  - Password hashing: BCrypt vs Argon2 (BCrypt chosen as standard Spring Security default).
+  - Minimum password length: 8 characters (NIST SP 800-63B baseline security standard).
+  - Flyway version: V1 vs V2 (V1 chosen as no V1 exists in git history and versioning starts at 1).
+CHOSEN OPTION: BCryptPasswordEncoder, 8-character minimum length validation, V1__create_users_table.sql migration.
+WHY: BCrypt is natively supported by Spring Security. 8-char min length aligns with industry baselines. V1 migration reflects actual file version history cleanly without gaps.
+IMPACT: User entity, RegisterRequest validation, AuthService, V1__create_users_table.sql.
+RELATED JIRA: FOUND-002
+RELATED DOCUMENTS: 15_SECURITY_AND_PRIVACY.md §1, 13_DATABASE_SPECIFICATION.md §1, §5
+```
+
+### DEC-0005
+```
+DATE: 2026-09-13
+TYPE: Architectural
+DECISION: Auth API route contracts (POST /api/auth/register, POST /api/auth/login, GET /api/auth/me) should be formally added to 12_API_SPECIFICATION.md.
+STATUS: Proposed
+CONTEXT: Jira story FOUND-002 acceptance criteria define registration, login, and current-user endpoints. 12_API_SPECIFICATION.md headers mention JWT bearer auth but does not enumerate the specific auth endpoint paths or payloads.
+OPTIONS CONSIDERED:
+  - Add auth endpoint contracts to 12_API_SPECIFICATION.md (Proposed).
+  - Leave auth contracts implicitly defined by Jira FOUND-002 only.
+CHOSEN OPTION: Propose adding auth contracts to 12_API_SPECIFICATION.md so product specification remains complete.
+WHY: Preserves single source of truth across product spec and implementation.
+IMPACT: 12_API_SPECIFICATION.md update (pending product owner sign-off).
+RELATED JIRA: FOUND-002
+RELATED DOCUMENTS: 12_API_SPECIFICATION.md, 15_SECURITY_AND_PRIVACY.md §1
+```
+

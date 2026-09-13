@@ -20,3 +20,9 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+atlas:
+  jwt:
+    secret: ${ATLAS_JWT_SECRET}
+    expiration-ms: ${ATLAS_JWT_EXPIRATION_MS:86400000}
+
