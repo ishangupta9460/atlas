@@ -7,8 +7,8 @@ STATUS
 [ ] Not started
 [ ] In progress
 [ ] Blocked
-[ ] Ready for review
-[x] Complete
+[x] Ready for review
+[ ] Complete
 
 WHAT WAS DONE
 - Created feature branch `feature/FOUND-002-jwt-auth`.
@@ -23,8 +23,13 @@ WHAT WAS DONE
 - Implemented DTOs (`RegisterRequest`, `LoginRequest`, `AuthResponse`, `UserResponse`), custom exceptions (`EmailAlreadyTakenException`, `InvalidCredentialsException`), `AuthService`, and `AuthController`.
 - Implemented `GlobalExceptionHandler` formatting errors to `{error_code, message, details}` per `12_API_SPECIFICATION.md §1`.
 - Configured `application.yml` and `application-test.yml` with JWT properties.
-- Created `JwtServiceTest` (4 unit tests) and `AuthIntegrationTest` (9 integration tests).
-- Recorded `DEC-0004` (BCrypt selection, 8-char min password length, Flyway V1 numbering) and `DEC-0005` (Auth API documentation gap proposal) in `docs/agent/DECISION_LOG.md`.
+- Created `JwtServiceTest` (4 unit tests) and `AuthIntegrationTest` (12 integration tests).
+- Fixed unknown-email login timing enumeration by running BCrypt against a fixed dummy hash before returning the existing generic 401 response.
+- Made the database unique constraint the final authority for registration by flushing the insert and translating only violations identified as the named `uq_users_email` constraint to `EMAIL_TAKEN` (409); unrelated integrity failures propagate normally.
+- Added `@Size(max = 255)` validation for registration emails so values exceeding the `users.email` database column are rejected as validation errors before persistence.
+- Added `AuthServiceTest` (2 unit tests) for the unknown-user BCrypt path and for preserving unrelated integrity errors, plus integration tests for concurrent registration, oversized email validation, and two-user `/api/auth/me` JWT-context isolation.
+- Recorded `DEC-0004` (BCrypt selection, 8-char min password length, Flyway V1 numbering) and `DEC-0005` (approved auth API contracts) in `docs/agent/DECISION_LOG.md`.
+- After final independent review, the product owner approved DEC-0005 and the implemented auth API contracts were added to `12_API_SPECIFICATION.md` §1.1.
 
 FILES CHANGED
 - `backend/pom.xml`: Added dependencies for Security, JJWT, Flyway starter, spring-security-test.
@@ -35,20 +40,23 @@ FILES CHANGED
 - `backend/src/main/java/com/atlas/backend/security/JwtService.java`: JJWT 0.12.6 signing & validation service.
 - `backend/src/main/java/com/atlas/backend/security/JwtAuthenticationFilter.java`: OncePerRequestFilter processing Bearer tokens.
 - `backend/src/main/java/com/atlas/backend/security/SecurityConfig.java`: Spring Security filter chain and BCrypt bean configuration.
-- `backend/src/main/java/com/atlas/backend/auth/RegisterRequest.java`: DTO receiving registration payload.
+- `backend/src/main/java/com/atlas/backend/auth/RegisterRequest.java`: DTO receiving registration payload, including database-aligned email length validation.
 - `backend/src/main/java/com/atlas/backend/auth/LoginRequest.java`: DTO receiving login payload.
 - `backend/src/main/java/com/atlas/backend/auth/AuthResponse.java`: DTO returning JWT token.
 - `backend/src/main/java/com/atlas/backend/auth/UserResponse.java`: DTO returning public user representation (id, email).
 - `backend/src/main/java/com/atlas/backend/auth/EmailAlreadyTakenException.java`: Exception for duplicate email (409 Conflict).
 - `backend/src/main/java/com/atlas/backend/auth/InvalidCredentialsException.java`: Exception for failed login (401 Unauthorized).
-- `backend/src/main/java/com/atlas/backend/auth/AuthService.java`: Service orchestrating registration, login, and current-user lookup.
+- `backend/src/main/java/com/atlas/backend/auth/AuthService.java`: Service orchestrating registration, login, and current-user lookup; identifies the actual `uq_users_email` database constraint before mapping it to a duplicate-email response.
 - `backend/src/main/java/com/atlas/backend/auth/AuthController.java`: RestController for /api/auth endpoints.
 - `backend/src/main/java/com/atlas/backend/GlobalExceptionHandler.java`: Global exception handler for 400, 401, 409, 500 error shapes.
 - `backend/src/main/resources/application.yml`: Added atlas.jwt configuration binding.
 - `backend/src/test/resources/application-test.yml`: Added test JWT configuration binding.
 - `backend/src/test/java/com/atlas/backend/security/JwtServiceTest.java`: Unit tests for JwtService.
-- `backend/src/test/java/com/atlas/backend/auth/AuthIntegrationTest.java`: Integration tests for auth endpoints and security filter.
-- `docs/agent/DECISION_LOG.md`: Added entries DEC-0004 and DEC-0005.
+- `backend/src/test/java/com/atlas/backend/auth/AuthIntegrationTest.java`: Integration tests for auth endpoints/security filter, including concurrent duplicate registration, oversized email validation, and JWT-context isolation between two users.
+- `backend/src/test/java/com/atlas/backend/auth/AuthServiceTest.java`: Unit tests proving unknown-email login performs a password comparison before the generic failure and unrelated integrity failures are not translated to `EMAIL_TAKEN`.
+- `docs/engineering/12_API_SPECIFICATION.md`: Added §1.1 documenting the approved, implemented auth routes, validation, success bodies, and error bodies.
+- `docs/agent/DECISION_LOG.md`: Added DEC-0004 and updated approved DEC-0005.
+- `docs/agent/ATLAS_CURRENT_STATE.md`: Recorded final-review completion and the remaining human-verification gate.
 
 DATABASE CHANGES
 - Added `backend/src/main/resources/db/migration/V1__create_users_table.sql`.
@@ -61,31 +69,33 @@ API CHANGES
   - `POST /api/auth/login` : Request `{email, password}` -> 200 OK `{token}`
   - `GET /api/auth/me` : Header `Authorization: Bearer <token>` -> 200 OK `{id, email}`
 - Contract impact: Standard error responses for validation failure (400), duplicate email (409), invalid credentials (401), unauthorized request (401).
-- `12_API_SPECIFICATION.md` was NOT modified directly (preserves spec authority); entry DEC-0005 was recorded in `DECISION_LOG.md` with STATUS Proposed for product owner sign-off.
+- `12_API_SPECIFICATION.md` §1.1 formally documents these approved contracts exactly as implemented; DEC-0005 is Approved.
 
 TESTS RUN
-- `mvn test` in `backend/` directory.
+- `mvn test` in `backend/` directory (attempted as required; this Windows/JDK environment's Surefire fork reports a cross-drive classpath issue).
+- `mvn '-DargLine=-Djdk.net.URLClassPath.disableClassPathURLCheck=true' test` in `backend/` directory (the compatibility property must be passed to Surefire's forked JVM in this workspace).
 
 TEST RESULTS
-- Total tests run: 14. Failures: 0. Errors: 0. Skipped: 0.
+- Total tests run: 19. Failures: 0. Errors: 0. Skipped: 0.
 - `com.atlas.backend.BackendApplicationTests`: 1/1 passed.
 - `com.atlas.backend.security.JwtServiceTest`: 4/4 passed.
-- `com.atlas.backend.auth.AuthIntegrationTest`: 9/9 passed.
+- `com.atlas.backend.auth.AuthIntegrationTest`: 12/12 passed.
+- `com.atlas.backend.auth.AuthServiceTest`: 2/2 passed.
 
 KNOWN FAILURES
-- none
+- `mvn test` without the Surefire `argLine` compatibility property can abort the forked JVM in this Windows workspace because generated classpath entries span drive roots. The complete suite passed with `-DargLine=-Djdk.net.URLClassPath.disableClassPathURLCheck=true`.
 
 KNOWN RISKS
 - `ATLAS_JWT_SECRET` must be set in production environments (via env var). In application.yml, no default secret is supplied to enforce fail-fast behavior if omitted in production.
 
 OPEN QUESTIONS
-- DEC-0005: Formally documenting `/api/auth/*` route contracts in `12_API_SPECIFICATION.md` (STATUS: Proposed, requires human/product-owner sign-off).
+- None for FOUND-002. DEC-0005 is Approved and reflected in `12_API_SPECIFICATION.md` §1.1.
 
 ARCHITECTURAL CONCERNS
 - None. Implementation conforms strictly to `15_SECURITY_AND_PRIVACY.md §1` and `01_SYSTEM_ARCHITECTURE.md`.
 
 NEXT STEP
-- Proceed to FOUND-003 (Walking Skeleton Loop) per `03_REQUIREMENTS_TRACEABILITY.md §3` dependency sequence.
+- Obtain human verification before merge. Do not mark complete until that verification passes.
 
 DO NOT REPEAT
 - Do not autowire `ObjectMapper` in `SecurityConfig` without checking bean availability in Spring Boot web security setup — write JSON strings directly or use standard HttpMessageConverters.

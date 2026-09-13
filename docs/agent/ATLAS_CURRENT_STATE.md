@@ -6,7 +6,7 @@
 
 ## 2. Current Phase
 
-Documentation and agent governance setup is complete. The next development target is **FOUND-002**. FOUND-002 is not marked complete.
+Documentation and agent governance setup is complete. **FOUND-002** has passed final independent review and awaits human verification; it is not marked complete.
 
 ## 3. Current Repository
 
@@ -68,7 +68,7 @@ Show affected dependents → user selects which to cancel → explicit confirmat
 | Story | Status | Evidence |
 |---|---|---|
 | FOUND-001 | Complete | Repo/CI foundation verified |
-| FOUND-002 | Not started / not yet verified | Auth implementation not present in baseline |
+| FOUND-002 | Ready for human verification / not yet approved | JWT auth implementation and approved API contracts exist on `feature/FOUND-002-jwt-auth`; human verification remains required before merge. |
 | FOUND-003 | Not started / not yet verified | Walking skeleton not present in baseline |
 
 **Note:** UNKNOWN — verify before proceeding. This session has no direct visibility into the repository, so this table reflects the last known state rather than a fresh check.
@@ -88,7 +88,7 @@ Recorded baseline:
 
 **FOUND-002 — Auth (JWT)**
 
-Not marked started; no repository evidence has been reviewed in this session to indicate otherwise.
+Obtain human verification before merge. The final independent review passed after DEC-0005 approval and API-contract documentation; do not mark the story complete until human verification has passed.
 
 ## 10. Development Workflow
 

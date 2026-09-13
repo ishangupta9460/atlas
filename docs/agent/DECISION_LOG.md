@@ -322,16 +322,15 @@ RELATED DOCUMENTS: 15_SECURITY_AND_PRIVACY.md §1, 13_DATABASE_SPECIFICATION.md 
 ```
 DATE: 2026-09-13
 TYPE: Architectural
-DECISION: Auth API route contracts (POST /api/auth/register, POST /api/auth/login, GET /api/auth/me) should be formally added to 12_API_SPECIFICATION.md.
-STATUS: Proposed
+DECISION: Auth API route contracts (POST /api/auth/register, POST /api/auth/login, GET /api/auth/me) are formally documented in 12_API_SPECIFICATION.md.
+STATUS: Approved
 CONTEXT: Jira story FOUND-002 acceptance criteria define registration, login, and current-user endpoints. 12_API_SPECIFICATION.md headers mention JWT bearer auth but does not enumerate the specific auth endpoint paths or payloads.
 OPTIONS CONSIDERED:
-  - Add auth endpoint contracts to 12_API_SPECIFICATION.md (Proposed).
+  - Add auth endpoint contracts to 12_API_SPECIFICATION.md.
   - Leave auth contracts implicitly defined by Jira FOUND-002 only.
-CHOSEN OPTION: Propose adding auth contracts to 12_API_SPECIFICATION.md so product specification remains complete.
+CHOSEN OPTION: Add the implemented auth contracts to 12_API_SPECIFICATION.md so product specification remains complete.
 WHY: Preserves single source of truth across product spec and implementation.
-IMPACT: 12_API_SPECIFICATION.md update (pending product owner sign-off).
+IMPACT: `12_API_SPECIFICATION.md` §1.1 documents the approved contracts and their implemented validation, success, and error responses.
 RELATED JIRA: FOUND-002
 RELATED DOCUMENTS: 12_API_SPECIFICATION.md, 15_SECURITY_AND_PRIVACY.md §1
 ```
-
