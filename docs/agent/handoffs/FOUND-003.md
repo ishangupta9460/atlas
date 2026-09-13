@@ -88,7 +88,10 @@ NEXT STEP
 DO NOT REPEAT
 - Do not broaden this placeholder into the full Commitment, Focus Session, Scheduler, or Event Log models before their own stories.
 
-REVIEW FINDINGS (2026-09-13)
-- Independent review verdict: FAIL. The backend endpoints, user scoping, minimal model, migration chain, and transactional task/event writes were verified; `mvn test` was run independently with 28 tests passing.
-- Blocking acceptance-criteria gap: `docs/jira/JIRA_BACKLOG.md` defines FOUND-003's key sub-tasks as including a "bare Today screen." The branch contains no frontend changes, and `frontend/src/App.tsx` remains an environment-status page that explicitly says it is not the Atlas product UI. The create → Today-visible → start → finish loop is therefore not proven through the requested bare UI.
-- Documentation follow-up after the UI gap is fixed: `12_API_SPECIFICATION.md` has no temporary `/api/tasks` route contracts. The review brief requires this to be handled consistently with DEC-0005, as a documentation follow-up rather than an implicit product decision.
+REVIEW FINDINGS (2026-09-13, final re-review)
+- Independent review verdict: PASS. Commit `ce7b838` changed only `frontend/src/App.tsx`, `frontend/src/TodayScreen.tsx`, and governance documentation; no backend code or migrations changed after the earlier backend review.
+- Live verification used the running frontend at `http://127.0.0.1:5173` and its `/api` Vite proxy to a running H2-backed backend. A newly registered user received 201; the exact Today-screen request sequence created a task (`ready`), fetched it from `/api/tasks/today`, started it (`in_progress`) and observed that state after refresh, finished it (`completed`), then observed an empty Today list. An invalid bearer token returned 401.
+- `TodayScreen.tsx` attaches `Authorization: Bearer <JWT>` to every request, reads the token from the explicit local-storage-backed input, renders API failure messages in a `role="alert"`, refreshes after each mutation, and is mounted by `App.tsx`. It contains no Now/Next/Later, scheduling, priority/ranking, or placeholder task data.
+- Independently run verification: `mvn test` in `backend` — 28 tests, 0 failures, 0 errors, 0 skipped; `npm run build` in `frontend` — passed. No frontend test framework is configured, so the live check is the frontend behavioral evidence.
+- The temporary `/api/tasks` routes remain intentionally absent from `12_API_SPECIFICATION.md`, which documents the permanent full Commitment API. This is a known, explicitly deferred walking-skeleton contract gap, not a silently changed permanent API contract.
+- Review environment note: an externally supplied short `ATLAS_JWT_SECRET` initially prevented local backend startup because JJWT requires at least 256 bits. Supplying a valid review-only test secret allowed the test-profile backend to start; this was environment configuration, not a change in this branch.

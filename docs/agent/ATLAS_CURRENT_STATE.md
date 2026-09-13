@@ -6,7 +6,7 @@
 
 ## 2. Current Phase
 
-Documentation and agent governance setup is complete. **FOUND-003** is ready for a repeated independent review; it is not ready for human verification.
+Documentation and agent governance setup is complete. **FOUND-003** has passed final independent review and awaits human verification; it is not marked complete.
 
 ## 3. Current Repository
 
@@ -69,7 +69,7 @@ Show affected dependents → user selects which to cancel → explicit confirmat
 |---|---|---|
 | FOUND-001 | Complete | Repo/CI foundation verified |
 | FOUND-002 | Ready for human verification / not yet approved | JWT auth implementation and approved API contracts exist on `feature/FOUND-002-jwt-auth`; human verification remains required before merge. |
-| FOUND-003 | Ready for repeated independent review | The backend walking skeleton and its bare Today screen exist on `feature/FOUND-003-walking-skeleton`; repeated review remains required. |
+| FOUND-003 | Ready for human verification / not yet approved | The backend walking skeleton and bare Today screen passed final independent review on `feature/FOUND-003-walking-skeleton`; human verification remains required before merge. |
 
 **Note:** UNKNOWN — verify before proceeding. This session has no direct visibility into the repository, so this table reflects the last known state rather than a fresh check.
 
@@ -88,7 +88,7 @@ Recorded baseline:
 
 **FOUND-003 — Walking skeleton loop**
 
-Repeat independent review of FOUND-003, including the bare Today screen. Do not mark the story complete until the review passes and human verification has occurred.
+Obtain human verification before merge. The final independent review passed after live create → Today → start → finish verification; do not mark the story complete until human verification has occurred.
 
 ## 10. Development Workflow
 
