@@ -3,6 +3,7 @@ package com.atlas.backend.roadmap;
 import com.atlas.backend.goal.Goal;
 import com.atlas.backend.goal.GoalNotFoundException;
 import com.atlas.backend.goal.GoalRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,8 +24,12 @@ public class RoadmapService {
     @Transactional
     public RoadmapResponse createRoadmap(Long userId, Long goalId, CreateRoadmapRequest request) {
         findOwnedGoal(userId, goalId);
-        Roadmap roadmap = roadmapRepository.save(Roadmap.create(goalId, request.source()));
-        return response(roadmap);
+        try {
+            Roadmap roadmap = roadmapRepository.saveAndFlush(Roadmap.create(goalId, request.source()));
+            return response(roadmap);
+        } catch (DataIntegrityViolationException ex) {
+            throw new RoadmapAlreadyExistsException();
+        }
     }
 
     @Transactional(readOnly = true)

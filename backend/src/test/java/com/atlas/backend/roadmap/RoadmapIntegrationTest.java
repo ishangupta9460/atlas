@@ -88,6 +88,18 @@ class RoadmapIntegrationTest {
     }
 
     @Test
+    void secondRoadmapForTheSameGoalReturnsConflict() throws Exception {
+        String token = registerAndLogin("roadmap-duplicate@example.com");
+        long goalId = createGoal(token, "One roadmap only");
+        createRoadmap(token, goalId, "{}");
+
+        mockMvc.perform(post("/goals/{id}/roadmaps", goalId).header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error_code", is("ROADMAP_ALREADY_EXISTS")));
+    }
+
+    @Test
     void everyRouteFollowsFullGoalRoadmapMilestoneOwnershipChain() throws Exception {
         String alice = registerAndLogin("roadmap-alice@example.com");
         String bob = registerAndLogin("roadmap-bob@example.com");

@@ -7,6 +7,7 @@ import com.atlas.backend.task.TaskNotFoundException;
 import com.atlas.backend.goal.GoalNotFoundException;
 import com.atlas.backend.goal.InvalidGoalStateException;
 import com.atlas.backend.roadmap.MilestoneNotFoundException;
+import com.atlas.backend.roadmap.RoadmapAlreadyExistsException;
 import com.atlas.backend.roadmap.RoadmapImmutableException;
 import com.atlas.backend.roadmap.RoadmapNotFoundException;
 import java.util.HashMap;
@@ -117,6 +118,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RoadmapImmutableException.class)
     public ResponseEntity<Map<String, Object>> handleRoadmapImmutable(RoadmapImmutableException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error_code", "ROADMAP_IMMUTABLE", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(RoadmapAlreadyExistsException.class)
+    public ResponseEntity<Map<String, Object>> handleRoadmapAlreadyExists(RoadmapAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error_code", "ROADMAP_ALREADY_EXISTS", "message", ex.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)
