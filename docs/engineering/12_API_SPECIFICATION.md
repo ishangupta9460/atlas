@@ -13,6 +13,55 @@
 - Mutations that trigger scheduling side effects return the affected Scheduled Block(s) inline rather than requiring a follow-up fetch.
 - **Idempotency (resolved):** every scheduling-mutation endpoint — block move (§6), session start/pause/resume/finish (§7), progress report (§4) — requires an `Idempotency-Key` request header. The server persists the key against the resulting state change (`13_DATABASE_SPECIFICATION.md` §1) and, on a retried request with the same key, returns the original result rather than re-applying the mutation. This is a contract requirement, not an implementation footnote — a client that omits the header on one of these endpoints receives a validation error.
 
+### 1.1 Authentication
+
+**[APPROVED — DEC-0005, 2026-09-13]** — the following routes implement Jira `FOUND-002` and `15_SECURITY_AND_PRIVACY.md` §1. They are the only authentication routes in the current API surface.
+
+| Method | Route | Authentication | Request | Success response |
+|---|---|---|---|---|
+| POST | `/api/auth/register` | Public | `{ "email": string, "password": string }` | `201 Created` — `{ "id": number, "email": string }` |
+| POST | `/api/auth/login` | Public | `{ "email": string, "password": string }` | `200 OK` — `{ "token": string }` |
+| GET | `/api/auth/me` | `Authorization: Bearer <token>` | None | `200 OK` — `{ "id": number, "email": string }` |
+
+`register` validates that `email` is non-blank, a valid email address, and at most 255 characters; `password` is non-blank and at least 8 characters. `login` validates that both fields are non-blank and that `email` is a valid email address. Validation failure returns `400 Bad Request`:
+
+```json
+{
+  "error_code": "VALIDATION_ERROR",
+  "message": "Validation failed for request arguments",
+  "details": ["field: validation message"]
+}
+```
+
+Duplicate registration returns `409 Conflict`:
+
+```json
+{
+  "error_code": "EMAIL_TAKEN",
+  "message": "Email address is already registered: <email>"
+}
+```
+
+Invalid credentials — whether the email is unknown or the password is wrong — return the same `401 Unauthorized` response and never issue a token:
+
+```json
+{
+  "error_code": "INVALID_CREDENTIALS",
+  "message": "Invalid email or password"
+}
+```
+
+A missing, malformed, expired, tampered, or otherwise invalid bearer token on `/api/auth/me` returns `401 Unauthorized`:
+
+```json
+{
+  "error_code": "UNAUTHORIZED",
+  "message": "Authentication required"
+}
+```
+
+The current-user identity is derived only from the validated JWT; `/api/auth/me` accepts no user identifier that can select another account. Auth responses never contain a plaintext password or password hash.
+
 ## 2. Goals
 
 | Method | Route | Purpose |
