@@ -2,6 +2,8 @@ package com.atlas.backend;
 
 import com.atlas.backend.auth.EmailAlreadyTakenException;
 import com.atlas.backend.auth.InvalidCredentialsException;
+import com.atlas.backend.task.InvalidTaskStateException;
+import com.atlas.backend.task.TaskNotFoundException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +67,24 @@ public class GlobalExceptionHandler {
                 "message", ex.getMessage()
         );
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    @ExceptionHandler(TaskNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleTaskNotFound(TaskNotFoundException ex) {
+        Map<String, Object> body = Map.of(
+                "error_code", "TASK_NOT_FOUND",
+                "message", ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    @ExceptionHandler(InvalidTaskStateException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidTaskState(InvalidTaskStateException ex) {
+        Map<String, Object> body = Map.of(
+                "error_code", "INVALID_TASK_STATE",
+                "message", ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
     @ExceptionHandler(Exception.class)
