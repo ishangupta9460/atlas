@@ -6,7 +6,7 @@
 
 ## 2. Current Phase
 
-Documentation and agent governance setup is complete. **FOUND-003** has passed final independent review and awaits human verification; it is not marked complete.
+Phase 0 — Foundation & Walking Skeleton — is complete: FOUND-001, FOUND-002, and FOUND-003 were reviewed and merged into `develop`. Phase 1 — Domain Breadth, Part 1 — is next, beginning with DOM-001.
 
 ## 3. Current Repository
 
@@ -22,13 +22,13 @@ Main branch:
 Development branch:
 `develop`
 
-Current baseline commit:
-`d63d963`
+Current `develop` commit:
+`198b50d`
 
 Commit message:
-`docs: establish Atlas specification and agent governance baseline`
+`docs(FOUND-003): record final review pass`
 
-**Note:** This chat session has no filesystem or git access to the repository above (it lives on the user's local Windows machine). The commit reference is taken as given rather than independently verified. Before relying on it, run `git log -1` (or equivalent) in the actual repo to confirm the baseline hasn't moved.
+Verified from the repository on 2026-09-13. This snapshot must be updated when `develop` advances.
 
 ## 4. Product Specification State
 
@@ -50,7 +50,7 @@ The following are recorded as existing:
 - `docs/agent/DECISION_LOG.md`
 - `docs/agent/ATLAS_CURRENT_STATE.md`
 
-**Note:** UNKNOWN — verify before proceeding. This session cannot confirm these files are actually present in the repository; it can only record what was specified.
+Verified present in the repository on 2026-09-13.
 
 ## 6. Approved Product Decisions
 
@@ -67,11 +67,11 @@ Show affected dependents → user selects which to cancel → explicit confirmat
 
 | Story | Status | Evidence |
 |---|---|---|
-| FOUND-001 | Complete | Repo/CI foundation verified |
-| FOUND-002 | Ready for human verification / not yet approved | JWT auth implementation and approved API contracts exist on `feature/FOUND-002-jwt-auth`; human verification remains required before merge. |
-| FOUND-003 | Ready for human verification / not yet approved | The backend walking skeleton and bare Today screen passed final independent review on `feature/FOUND-003-walking-skeleton`; human verification remains required before merge. |
+| FOUND-001 | Complete / merged | Foundation and CI work is in `develop`. |
+| FOUND-002 | Complete / merged | JWT authentication, V1 user migration, and approved auth API contracts are in `develop`. |
+| FOUND-003 | Complete / merged | The V2/V3 walking-skeleton task/event migrations and bare Today loop are in `develop`; final review passed. |
 
-**Note:** UNKNOWN — verify before proceeding. This session has no direct visibility into the repository, so this table reflects the last known state rather than a fresh check.
+Verified against `develop` history and the current V1–V3 Flyway migration chain on 2026-09-13.
 
 ## 8. Verified Environment
 
@@ -82,13 +82,13 @@ Recorded baseline:
 - Backend tests passing
 - Frontend build passing
 
-**Note:** UNKNOWN — verify before proceeding. Not independently confirmed by this session.
+Verified by the completed FOUND-002/003 handoffs and final review records.
 
 ## 9. Current Next Action
 
-**FOUND-003 — Walking skeleton loop**
+**DOM-001 — Goal entity + Lifecycle/Planning state**
 
-Obtain human verification before merge. The final independent review passed after live create → Today → start → finish verification; do not mark the story complete until human verification has occurred.
+Start Phase 1 — Domain Breadth, Part 1 — with DOM-001, which is unblocked by FOUND-003 and precedes DOM-002, DOM-004, DOM-005, and DOM-006.
 
 ## 10. Development Workflow
 
@@ -111,11 +111,8 @@ None known.
 
 ## 13. Last Completed Work
 
-- Specification review and reconstruction work (adversarial defect review across the reviewed doc set; reconstruction of missing docs in progress)
-- Three product decisions (Section 6) propagated
-- Agent governance files created
-- GitHub remote established
-- Documentation baseline committed and pushed
+- FOUND-001, FOUND-002, and FOUND-003 completed, independently reviewed, and merged into `develop`.
+- Phase 0's minimal authenticated create → Today → start → finish → event loop is complete; its V1–V3 migrations remain explicitly temporary until the later Domain/Event Log work supersedes them.
 
 ## 14. Resume Instructions
 

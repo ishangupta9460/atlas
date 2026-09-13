@@ -16,6 +16,7 @@ For every Jira story, this document answers: what does it implement, which docum
 - **Partially specified** — the cited section exists but has a known incompleteness: an acceptance-criteria text that hasn't caught up to a spec correction, or a sub-behavior the owning document flags as open.
 - **Blocked by open product decision** — the cited section explicitly defers a decision (marked OPEN PRODUCT DECISION in its owning document) that must be resolved before this story can be built as more than a stub.
 - **Missing specification** — no section anywhere in the package defines this behavior, despite Jira or another document implying it should exist. (None of the 91 stories fall in this category as of this reconstruction pass — see §4 for genuine gaps that exist despite full story coverage, and the reconstruction report for the one behavior — task cancellation — that has full domain-model support but *no story at all*.)
+- **Complete / merged** — implementation, required review, and merge into `develop` are complete; the remainder of the entry retains its specification-completeness evidence.
 
 ## 2. Sprint 0–15 → Jira Epic Disposition
 
@@ -50,9 +51,9 @@ For every Jira story, this document answers: what does it implement, which docum
 
 | Story | Requirement | Owning Spec | Dependencies | Status |
 |---|---|---|---|---|
-| `FOUND-001` | Repo & CI setup | `01` §5, `17` §7 | none | Fully specified — `01` §5, `17` §7 now exist and match the sub-tasks exactly. |
-| `FOUND-002` | Auth (JWT) | `15` §1 | FOUND-001 | Fully specified — `15` §1. |
-| `FOUND-003` | Walking skeleton loop | `18` §1 Phase 0 | FOUND-002 | Fully specified — `18` §1 Phase 0. |
+| `FOUND-001` | Repo & CI setup | `01` §5, `17` §7 | none | Complete / merged — `01` §5 and `17` §7 remain fully specified and match the sub-tasks exactly. |
+| `FOUND-002` | Auth (JWT) | `15` §1 | FOUND-001 | Complete / merged — JWT auth, the V1 user migration, and the approved §1.1 auth contracts are implemented in `develop`; `15` §1 remains fully specified. |
+| `FOUND-003` | Walking skeleton loop | `18` §1 Phase 0 | FOUND-002 | Complete / merged — the V2/V3 placeholder task/event migrations and bare Today loop are implemented in `develop`; `18` §1 Phase 0 remains fully specified. |
 
 ### Domain Model
 

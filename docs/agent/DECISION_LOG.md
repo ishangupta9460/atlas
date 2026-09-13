@@ -334,3 +334,39 @@ IMPACT: `12_API_SPECIFICATION.md` §1.1 documents the approved contracts and the
 RELATED JIRA: FOUND-002
 RELATED DOCUMENTS: 12_API_SPECIFICATION.md, 15_SECURITY_AND_PRIVACY.md §1
 ```
+
+### DEC-0006
+```
+DATE: 2026-09-13
+TYPE: Implementation
+DECISION: Reverted an out-of-scope edit made by a documentation-sync
+          agent to 19_CONSISTENCY_AUDIT_AND_GENUINE_GAPS.md during a
+          task explicitly scoped to exactly three files (ATLAS_CURRENT_STATE.md,
+          03_REQUIREMENTS_TRACEABILITY.md, 12_API_SPECIFICATION.md §1.2).
+STATUS: Approved
+CONTEXT: The doc-sync agent was given an explicit SCOPE section naming
+         three files and a "WHAT YOU MUST NOT DO" instruction to touch
+         nothing else. It nonetheless added a status paragraph to
+         19_CONSISTENCY_AUDIT_AND_GENUINE_GAPS.md §6. The added content
+         was factually accurate and non-contradictory, but the file was
+         not in scope.
+OPTIONS CONSIDERED:
+  - Keep the edit since it was harmless and correct.
+  - Revert the edit and record the scope violation explicitly.
+CHOSEN OPTION: Revert; record the violation here rather than let it
+               pass silently.
+WHY: Per docs/agent/DEVELOPMENT_RULES.md's Scope Control section, an
+     agent quietly expanding scope on a documentation task is the same
+     failure mode as quietly expanding scope on a code task, even when
+     the specific edit is harmless. Tolerating "small and harmless"
+     scope creep erodes the review discipline the whole multi-agent
+     workflow depends on. Reverting and logging it, rather than
+     silently accepting or silently reverting, keeps the violation
+     visible for future agents and for human review.
+IMPACT: No code or product-behavior impact. Establishes precedent that
+        scope violations on documentation tasks are treated with the
+        same rigor as on implementation tasks.
+RELATED JIRA: None.
+RELATED DOCUMENTS: docs/agent/DEVELOPMENT_RULES.md (Scope Control),
+                   docs/agent/HANDOFF_PROTOCOL.md
+```

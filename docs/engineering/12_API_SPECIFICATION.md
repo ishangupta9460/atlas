@@ -62,6 +62,19 @@ A missing, malformed, expired, tampered, or otherwise invalid bearer token on `/
 
 The current-user identity is derived only from the validated JWT; `/api/auth/me` accepts no user identifier that can select another account. Auth responses never contain a plaintext password or password hash.
 
+### 1.2 Temporary Phase 0 task-loop API
+
+**[TEMPORARY — FOUND-003, 2026-09-13]** — these authenticated `/api/tasks` routes prove the Phase 0 walking skeleton only. They operate on the deliberately minimal `tasks` and `events` tables introduced by Flyway V2/V3; they are **not** the permanent Commitment API and must be superseded when DOM-003 lands. They must not be extended to carry full Commitment, scheduling, Focus Session, or Event Log behavior.
+
+| Method | Route | Purpose |
+|---|---|---|
+| POST | `/api/tasks` | Create the caller's placeholder task from `{ "title": string }`; returns `201 Created` with a `ready` task and records `task.created`. |
+| GET | `/api/tasks/today` | Return only the caller's non-completed placeholder tasks; no scheduling, ranking, or Now/Next/Later behavior. |
+| POST | `/api/tasks/{id}/start` | Transition the caller's `ready` task to `in_progress` and record `task.started`. |
+| POST | `/api/tasks/{id}/finish` | Transition the caller's `in_progress` task to `completed` and record `task.finished`. |
+
+All four routes require `Authorization: Bearer <token>` and derive the user solely from that JWT. Missing, malformed, expired, or otherwise invalid tokens return `401 UNAUTHORIZED`. `POST /api/tasks` with a blank or over-255-character title returns `400 VALIDATION_ERROR`. Invalid transitions return `409 INVALID_TASK_STATE`; missing or foreign-owned task mutations return `404 TASK_NOT_FOUND`.
+
 ## 2. Goals
 
 | Method | Route | Purpose |
