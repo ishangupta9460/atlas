@@ -6,6 +6,9 @@ import com.atlas.backend.task.InvalidTaskStateException;
 import com.atlas.backend.task.TaskNotFoundException;
 import com.atlas.backend.goal.GoalNotFoundException;
 import com.atlas.backend.goal.InvalidGoalStateException;
+import com.atlas.backend.roadmap.MilestoneNotFoundException;
+import com.atlas.backend.roadmap.RoadmapImmutableException;
+import com.atlas.backend.roadmap.RoadmapNotFoundException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -99,6 +102,21 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleInvalidGoalState(InvalidGoalStateException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
                 "error_code", "INVALID_GOAL_STATE", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(RoadmapNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleRoadmapNotFound(RoadmapNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error_code", "ROADMAP_NOT_FOUND", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(MilestoneNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleMilestoneNotFound(MilestoneNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error_code", "MILESTONE_NOT_FOUND", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(RoadmapImmutableException.class)
+    public ResponseEntity<Map<String, Object>> handleRoadmapImmutable(RoadmapImmutableException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error_code", "ROADMAP_IMMUTABLE", "message", ex.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)
