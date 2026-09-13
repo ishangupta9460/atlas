@@ -59,7 +59,7 @@ For every Jira story, this document answers: what does it implement, which docum
 
 | Story | Requirement | Owning Spec | Dependencies | Status |
 |---|---|---|---|---|
-| `DOM-001` | Goal entity + Lifecycle/Planning state | `02` §1.1, §2.1–2.2 | FOUND-003 | Fully specified — `02` §1.1, §2.1–2.2. |
+| `DOM-001` | Goal entity + Lifecycle/Planning state | `02` §1.1, §2.1–2.2 | FOUND-003 | Implemented; independently reviewed across two rounds — PASS; merged pending human verification. |
 | `DOM-002` | Roadmap/Milestone entity | `02` §1.2–1.3 | DOM-001 | Fully specified — `02` §1.2–1.3. |
 | `DOM-003` | Commitment/Task full model | `02` §1.4, §5 | DOM-002 | Partially specified — `02` §1.4/§2.3/§5 now correctly enumerate `deferred`/`cancelled` work_state values (fixed in the September 2026 review pass), but this story's own acceptance criteria text still says only "incl. ... work_state" and should be updated to name the full value set explicitly (Jira change recommended, see `REVIEW_CHANGELOG.md` #1). |
 | `DOM-004` | Recurring Intention entity | `02` §1.5 | DOM-001 | Fully specified — `02` §1.5. |
