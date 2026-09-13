@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
+import TodayScreen from "./TodayScreen";
 
 /**
- * This screen only exists to prove the frontend can reach the backend.
- * It is not part of the Atlas product UI (see 14_UI_UX_SPECIFICATION.md
- * for the real Today screen, built starting in a later phase).
+ * The health check remains from the frontend scaffold. FOUND-003 adds the
+ * deliberately bare task loop below; the full Today UI remains a later story.
  */
 function App() {
   const [status, setStatus] = useState<"checking" | "ok" | "unreachable">("checking");
@@ -15,10 +15,11 @@ function App() {
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-      <div className="text-center space-y-2">
+    <div className="min-h-screen bg-neutral-50 p-6">
+      <div className="space-y-4">
         <h1 className="text-2xl font-semibold text-neutral-800">Atlas</h1>
         <p className="text-neutral-500">Environment setup — backend status: {status}</p>
+        <TodayScreen />
       </div>
     </div>
   );
