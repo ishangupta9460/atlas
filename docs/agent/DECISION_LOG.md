@@ -370,3 +370,25 @@ RELATED JIRA: None.
 RELATED DOCUMENTS: docs/agent/DEVELOPMENT_RULES.md (Scope Control),
                    docs/agent/HANDOFF_PROTOCOL.md
 ```
+
+### DEC-0007
+```
+DATE: 2026-09-13
+TYPE: Implementation
+DECISION: Per-story handoffs live in docs/agent/handoffs/<jira-key>.md.
+STATUS: Approved
+CONTEXT: DOM-004 is the first implementation task requiring a handoff
+         after HANDOFF_PROTOCOL.md established the convention but before
+         the repository contained a handoff directory.
+OPTIONS CONSIDERED:
+  - Store handoffs beside individual feature branches.
+  - Store all handoffs under docs/agent/handoffs/ keyed by Jira story.
+CHOSEN OPTION: docs/agent/handoffs/<jira-key>.md.
+WHY: This follows HANDOFF_PROTOCOL.md's explicit fallback, keeps durable
+     task state in a discoverable shared location, and avoids coupling
+     handoff visibility to a local branch checkout.
+IMPACT: Future implementing agents create or update the handoff file
+        for their assigned Jira key in this directory.
+RELATED JIRA: DOM-004
+RELATED DOCUMENTS: docs/agent/HANDOFF_PROTOCOL.md
+```

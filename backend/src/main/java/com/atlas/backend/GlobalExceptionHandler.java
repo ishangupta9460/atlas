@@ -10,6 +10,7 @@ import com.atlas.backend.roadmap.MilestoneNotFoundException;
 import com.atlas.backend.roadmap.RoadmapAlreadyExistsException;
 import com.atlas.backend.roadmap.RoadmapImmutableException;
 import com.atlas.backend.roadmap.RoadmapNotFoundException;
+import com.atlas.backend.recurringintention.RecurringIntentionNotFoundException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -103,6 +104,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleInvalidGoalState(InvalidGoalStateException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
                 "error_code", "INVALID_GOAL_STATE", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(RecurringIntentionNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleRecurringIntentionNotFound(RecurringIntentionNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                "error_code", "RECURRING_INTENTION_NOT_FOUND", "message", ex.getMessage()));
     }
 
     @ExceptionHandler(RoadmapNotFoundException.class)

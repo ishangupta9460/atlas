@@ -86,9 +86,9 @@ Verified by the completed FOUND-002/003 handoffs and final review records.
 
 ## 9. Current Next Action
 
-**DOM-002 — Roadmap/Milestone entity**
+**DOM-004 — Recurring Intention entity**
 
-DOM-002 is implemented and has passed two rounds of independent review; it is ready for human merge verification. It remains unmerged pending that verification.
+DOM-004 is implemented and has passed two rounds of independent review; it is ready for human merge verification. It remains unmerged pending that verification.
 
 ## 10. Development Workflow
 
