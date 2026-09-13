@@ -88,7 +88,7 @@ Verified by the completed FOUND-002/003 handoffs and final review records.
 
 **DOM-001 — Goal entity + Lifecycle/Planning state**
 
-Start Phase 1 — Domain Breadth, Part 1 — with DOM-001, which is unblocked by FOUND-003 and precedes DOM-002, DOM-004, DOM-005, and DOM-006.
+DOM-001 is implemented and has passed two rounds of independent review; it is ready for human merge verification. It remains unmerged pending that verification.
 
 ## 10. Development Workflow
 

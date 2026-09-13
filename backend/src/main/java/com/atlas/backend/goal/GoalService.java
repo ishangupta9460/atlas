@@ -1,0 +1,148 @@
+package com.atlas.backend.goal;
+
+import com.atlas.backend.event.Event;
+import com.atlas.backend.event.EventRepository;
+import java.time.LocalDate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/** Owns Goal CRUD and both independent Goal state machines. */
+@Service
+public class GoalService {
+    private final GoalRepository goalRepository;
+    private final EventRepository eventRepository;
+
+    public GoalService(GoalRepository goalRepository, EventRepository eventRepository) {
+        this.goalRepository = goalRepository;
+        this.eventRepository = eventRepository;
+    }
+
+    @Transactional
+    public GoalResponse create(Long userId, CreateGoalRequest request) {
+        return GoalResponse.from(goalRepository.save(Goal.create(
+                userId, request.title(), request.description(), request.targetDeadline())));
+    }
+
+    @Transactional(readOnly = true)
+    public GoalResponse get(Long userId, Long goalId) { return GoalResponse.from(findOwnedGoal(userId, goalId)); }
+
+    @Transactional
+    public GoalResponse update(Long userId, Long goalId, UpdateGoalRequest request) {
+        Goal goal = findOwnedGoal(userId, goalId);
+        goal.update(request.getTitle(), request.getTargetDeadline(), request.isTargetDeadlineProvided());
+        return GoalResponse.from(goal);
+    }
+
+    /** Explicit user completion; no automatic roadmap trigger exists until Roadmap is implemented. */
+    @Transactional
+    public GoalResponse complete(Long userId, Long goalId) {
+        Goal goal = findOwnedGoal(userId, goalId);
+        requireLifecycle(goal, Goal.ACTIVE, "Only active goals can be completed");
+        goal.complete();
+        writeUserEvent(goal, "goal.completed");
+        return GoalResponse.from(goal);
+    }
+
+    @Transactional
+    public GoalResponse abandon(Long userId, Long goalId) {
+        Goal goal = findOwnedGoal(userId, goalId);
+        requireLifecycle(goal, Goal.ACTIVE, "Only active goals can be abandoned");
+        goal.abandon();
+        writeUserEvent(goal, "goal.abandoned");
+        return GoalResponse.from(goal);
+    }
+
+    /** Internal scheduling hook; deliberately not exposed as an API endpoint in DOM-001. */
+    @Transactional
+    public GoalResponse defer(Long userId, Long goalId) {
+        Goal goal = findOwnedGoal(userId, goalId);
+        requirePlanning(goal, Goal.ACTIVE, "Only active goals can be deferred");
+        goal.defer();
+        writeAtlasEvent(goal, "goal.deferred",
+                "Scheduling overload pushed this goal's work out of the current week.");
+        return GoalResponse.from(goal);
+    }
+
+    /** Internal scheduling hook; deliberately not exposed as an API endpoint in DOM-001. */
+    @Transactional
+    public GoalResponse reactivate(Long userId, Long goalId) {
+        Goal goal = findOwnedGoal(userId, goalId);
+        requirePlanning(goal, Goal.DEFERRED, "Only deferred goals can be reactivated");
+        goal.reactivate();
+        writeAtlasEvent(goal, "goal.reactivated",
+                "Capacity became available and this goal re-entered the scheduling candidate pool.");
+        return GoalResponse.from(goal);
+    }
+
+    /** Internal Goal Risk hook; deliberately not exposed until the risk calculator exists. */
+    @Transactional
+    public GoalResponse markAtRisk(Long userId, Long goalId) {
+        Goal goal = findOwnedGoal(userId, goalId);
+        if (!Goal.ACTIVE.equals(goal.getPlanningState()) && !Goal.DEFERRED.equals(goal.getPlanningState())) {
+            throw new InvalidGoalStateException("Only active or deferred goals can be marked at risk");
+        }
+        goal.markAtRisk();
+        writeAtlasEvent(goal, "goal.at_risk",
+                "Goal feasibility calculation found insufficient available capacity for the remaining work before its deadline.");
+        return GoalResponse.from(goal);
+    }
+
+    @Transactional
+    public GoalResponse resolveRisk(Long userId, Long goalId) {
+        Goal goal = findOwnedGoal(userId, goalId);
+        requirePlanning(goal, Goal.AT_RISK, "Only at-risk goals can have risk resolved");
+        goal.resolveRisk();
+        writeUserEvent(goal, "goal.risk_resolved");
+        return GoalResponse.from(goal);
+    }
+
+    @Transactional
+    public GoalResponse pause(Long userId, Long goalId) {
+        Goal goal = findOwnedGoal(userId, goalId);
+        requirePlanning(goal, Goal.AT_RISK, "Only at-risk goals can be paused");
+        goal.pause();
+        writeUserEvent(goal, "goal.paused");
+        return GoalResponse.from(goal);
+    }
+
+    /** Explicit user resume transition; no DOM-001 API route was specified for it. */
+    @Transactional
+    public GoalResponse resume(Long userId, Long goalId) {
+        Goal goal = findOwnedGoal(userId, goalId);
+        requirePlanning(goal, Goal.PAUSED, "Only paused goals can be resumed");
+        goal.resume();
+        writeUserEvent(goal, "goal.resumed");
+        return GoalResponse.from(goal);
+    }
+
+    private Goal findOwnedGoal(Long userId, Long goalId) {
+        return goalRepository.findByIdAndUserId(goalId, userId).orElseThrow(GoalNotFoundException::new);
+    }
+
+    private void requireLifecycle(Goal goal, String expected, String message) {
+        if (!expected.equals(goal.getLifecycleState())) throw new InvalidGoalStateException(message);
+    }
+
+    private void requirePlanning(Goal goal, String expected, String message) {
+        if (!expected.equals(goal.getPlanningState())) throw new InvalidGoalStateException(message);
+    }
+
+    private void writeUserEvent(Goal goal, String type) {
+        flushGoalStateBeforeEvent();
+        eventRepository.save(Event.forEntity("goal", goal.getId(), type, "user"));
+    }
+
+    private void writeAtlasEvent(Goal goal, String type, String reason) {
+        flushGoalStateBeforeEvent();
+        eventRepository.save(Event.forEntity("goal", goal.getId(), type, "atlas", reason));
+    }
+
+    /**
+     * Issue the Goal update before its paired Event insert. Both statements remain
+     * in the enclosing transaction, so an Event insert failure rolls the update
+     * back while making the write ordering explicit and testable.
+     */
+    private void flushGoalStateBeforeEvent() {
+        goalRepository.flush();
+    }
+}

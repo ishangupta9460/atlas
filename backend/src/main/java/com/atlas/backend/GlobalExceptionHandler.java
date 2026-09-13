@@ -4,6 +4,8 @@ import com.atlas.backend.auth.EmailAlreadyTakenException;
 import com.atlas.backend.auth.InvalidCredentialsException;
 import com.atlas.backend.task.InvalidTaskStateException;
 import com.atlas.backend.task.TaskNotFoundException;
+import com.atlas.backend.goal.GoalNotFoundException;
+import com.atlas.backend.goal.InvalidGoalStateException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -85,6 +87,18 @@ public class GlobalExceptionHandler {
                 "message", ex.getMessage()
         );
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler(GoalNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleGoalNotFound(GoalNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                "error_code", "GOAL_NOT_FOUND", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidGoalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidGoalState(InvalidGoalStateException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                "error_code", "INVALID_GOAL_STATE", "message", ex.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)
