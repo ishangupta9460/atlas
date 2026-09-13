@@ -11,6 +11,8 @@ import com.atlas.backend.roadmap.RoadmapAlreadyExistsException;
 import com.atlas.backend.roadmap.RoadmapImmutableException;
 import com.atlas.backend.roadmap.RoadmapNotFoundException;
 import com.atlas.backend.recurringintention.RecurringIntentionNotFoundException;
+import com.atlas.backend.category.CategoryInUseException;
+import com.atlas.backend.category.CategoryNotFoundException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -110,6 +112,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleRecurringIntentionNotFound(RecurringIntentionNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
                 "error_code", "RECURRING_INTENTION_NOT_FOUND", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(CategoryNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleCategoryNotFound(CategoryNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error_code", "CATEGORY_NOT_FOUND", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(CategoryInUseException.class)
+    public ResponseEntity<Map<String, Object>> handleCategoryInUse(CategoryInUseException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error_code", "CATEGORY_IN_USE", "message", ex.getMessage()));
     }
 
     @ExceptionHandler(RoadmapNotFoundException.class)

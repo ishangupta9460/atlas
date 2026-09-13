@@ -129,7 +129,7 @@ class RecurringIntentionIntegrationTest {
 
     private long create(String token, String title, int target) throws Exception {
         MvcResult result = mockMvc.perform(post("/recurring-intentions").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new CreateRecurringIntentionRequest(null, title, target, 123L, "flexible"))))
+                        .content(objectMapper.writeValueAsString(new CreateRecurringIntentionRequest(null, title, target, null, "flexible"))))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.currentWeekRemainingCount", is(target))).andReturn();
         return json(result).get("id").asLong();
     }
