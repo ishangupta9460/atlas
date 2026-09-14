@@ -1,0 +1,84 @@
+{
+  "info": {
+    "name": "Atlas Smoke Tests",
+    "description": "Smoke flow for Atlas health, authentication, and DOM-006 Fixed Commitment CRUD. Supply smokeEmail and smokePassword in the selected environment; never store real credentials here.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "token", "value": "" },
+    { "key": "fixedCommitmentId", "value": "" },
+    { "key": "smokeEmail", "value": "" },
+    { "key": "smokePassword", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "HEALTH",
+      "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/health" }
+    },
+    {
+      "name": "AUTH",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{smokeEmail}}\",\n  \"password\": \"{{smokePassword}}\"\n}" },
+            "url": "{{baseUrl}}/api/auth/register"
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{smokeEmail}}\",\n  \"password\": \"{{smokePassword}}\"\n}" },
+            "url": "{{baseUrl}}/api/auth/login"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Login succeeded', function () { pm.response.to.have.status(200); });", "const body = pm.response.json();", "if (body.token) pm.environment.set('token', body.token);"] } }]
+        },
+        {
+          "name": "Current user",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/auth/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "FIXED COMMITMENT",
+      "item": [
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Smoke test reservation\",\n  \"startTime\": \"2030-01-15T10:00:00Z\",\n  \"endTime\": \"2030-01-15T11:00:00Z\",\n  \"recurrenceRule\": null\n}" },
+            "url": "{{baseUrl}}/fixed-commitments"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Created', function () { pm.response.to.have.status(201); });", "const body = pm.response.json();", "if (body.id) pm.environment.set('fixedCommitmentId', body.id);"] } }]
+        },
+        {
+          "name": "Get",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "url": "{{baseUrl}}/fixed-commitments/{{fixedCommitmentId}}" }
+        },
+        {
+          "name": "Patch",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Smoke test reservation updated\"\n}" },
+            "url": "{{baseUrl}}/fixed-commitments/{{fixedCommitmentId}}"
+          }
+        },
+        {
+          "name": "Delete",
+          "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "url": "{{baseUrl}}/fixed-commitments/{{fixedCommitmentId}}" }
+        }
+      ]
+    }
+  ]
+}
