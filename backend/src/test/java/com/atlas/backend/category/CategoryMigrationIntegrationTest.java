@@ -45,6 +45,18 @@ class CategoryMigrationIntegrationTest {
                     "SELECT category_id FROM recurring_intentions WHERE id = 1", Long.class));
             assertThrows(DataIntegrityViolationException.class, () -> jdbcTemplate.update(
                     "UPDATE recurring_intentions SET category_id = ? WHERE id = 1", 987654));
+
+            jdbcTemplate.update("""
+                    INSERT INTO categories (user_id, name, default_flexibility_tier, color)
+                    VALUES (1, 'Post-upgrade category', 'flexible', '#123456')
+                    """);
+            Long validCategoryId = jdbcTemplate.queryForObject(
+                    "SELECT id FROM categories WHERE user_id = 1 AND name = 'Post-upgrade category'", Long.class);
+
+            assertEquals(1, jdbcTemplate.update(
+                    "UPDATE recurring_intentions SET category_id = ? WHERE id = 1", validCategoryId));
+            assertEquals(validCategoryId, jdbcTemplate.queryForObject(
+                    "SELECT category_id FROM recurring_intentions WHERE id = 1", Long.class));
         }
     }
 
