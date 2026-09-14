@@ -113,6 +113,29 @@ All four routes require `Authorization: Bearer <token>` and derive the user sole
 | GET | `/recurring-intentions/{id}` | Fetch incl. current week's remaining target |
 | PATCH | `/recurring-intentions/{id}/target` | User- or Atlas-suggested (Collaborative-tier, requires confirmation) target change |
 
+### 5.1 Fixed Commitments / Calendar Events
+
+**[APPROVED — DOM-006, DEC-0008, 2026-09-14]** — manual reservation CRUD only. This restores the missing contract referenced by the September review; it does not implement screenshot import, scheduling or recovery.
+
+| Method | Route | Request | Success |
+|---|---|---|---|
+| POST | `/fixed-commitments` | `title`, `startTime`, `endTime`, optional null `recurrenceRule` | `201 Created`, entity |
+| GET | `/fixed-commitments/{id}` | None | `200 OK`, entity |
+| PATCH | `/fixed-commitments/{id}` | Supplied `title`, `startTime`, `endTime`, or null `recurrenceRule` | `200 OK`, entity |
+| DELETE | `/fixed-commitments/{id}` | None | Physical deletion, `204 No Content` |
+
+All four routes require JWT authentication. Ownership comes exclusively from the authenticated principal. Foreign-owned and missing IDs both return `404` with `error_code: FIXED_COMMITMENT_NOT_FOUND` and `message: Fixed Commitment not found`. Missing/invalid JWT returns `401 UNAUTHORIZED`. No collection/range endpoint exists in DOM-006.
+
+Entity responses contain `id`, `title`, `startTime`, `endTime`, `source`, `recurrenceRule`, and `flexibilityTier` (always `fixed`). Manual creation always assigns `source=manual`; clients cannot supply or update `source`, ownership, or flexibility. Unknown request fields, including server-controlled fields, are rejected rather than ignored. The persistence source enum also permits `screenshot_import`, reserved for the future user-approved import flow (DEC-0001); there is no import creation endpoint in this story. Existing imported provenance is preserved during manual edits.
+
+Validation uses the standard `{error_code, message}` shape with `400 VALIDATION_ERROR`. Title must be a string containing non-whitespace text and at most 255 characters. Both times must be ISO-8601 strings with explicit offsets, normalized to UTC and truncated to microsecond precision, within UTC years 1000–9999. The resulting `endTime` must be later than `startTime` after normalization. Invalid JSON, wrong types and malformed path IDs also return sanitized 400 errors without echoing request content.
+
+PATCH omission preserves the field; explicit null is rejected for title/start/end. Empty or unchanged PATCH returns the current entity without another event. `recurrenceRule` accepts only omission or null: creation stores null, omission on PATCH preserves storage, and explicit null clears it. Every non-null recurrence input is rejected; no recurrence syntax, expansion, series editing or recurrent timezone behavior is defined by DOM-006. A future recurrence story must define those contracts before enabling non-null public writes.
+
+Overlapping and identical intervals are allowed, on both creation and update. No overlap detection, automatic movement or recovery occurs. Repeated POST creates distinct entities and events, including when an `Idempotency-Key` header is repeated; no replay guarantee or persisted key infrastructure applies to these CRUD routes. The scheduling-mutation requirement in §1 remains unchanged for its owning endpoints. Repeated DELETE returns 404 after the first successful deletion.
+
+Creation, meaningful update and deletion respectively write `fixed_commitment.created`, `fixed_commitment.updated`, and `fixed_commitment.deleted` with actor `user`, entity type `fixed_commitment`, and structured after/before-and-after/before snapshots. Each event is inserted in the same transaction as its mutation; failure rolls back both. Physical deletion retains prior history and its deletion snapshot. No Cancelled lifecycle state is introduced. Concurrent updates/deletes lock the owned row so partial updates and event snapshots reflect the latest committed state.
+
 ## 6. Scheduling
 
 | Method | Route | Purpose |

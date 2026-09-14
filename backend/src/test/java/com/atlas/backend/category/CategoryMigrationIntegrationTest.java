@@ -66,7 +66,8 @@ class CategoryMigrationIntegrationTest {
     }
 
     private Flyway flyway(DataSource dataSource) {
-        return Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load();
+        // This historical test owns V6 -> V7, independently of later migrations.
+        return Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").target("7").load();
     }
 
     private Flyway flyway(DataSource dataSource, String target) {

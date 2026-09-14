@@ -50,6 +50,7 @@ public class Event {
     public Long getEntityId() { return entityId; }
     public String getActor() { return actor; }
     public String getReason() { return reason; }
+    public String getPayload() { return payload; }
     public Instant getTimestamp() { return timestamp; }
 
     public static Event of(Long taskId, String type) {
@@ -67,12 +68,17 @@ public class Event {
     }
 
     public static Event forEntity(String entityType, Long entityId, String type, String actor, String reason) {
+        return forEntity(entityType, entityId, type, actor, reason, null);
+    }
+
+    public static Event forEntity(String entityType, Long entityId, String type, String actor, String reason, String payload) {
         Event event = new Event();
         event.entityType = entityType;
         event.entityId = entityId;
         event.type = type;
         event.actor = actor;
         event.reason = reason;
+        event.payload = payload;
         return event;
     }
 }
