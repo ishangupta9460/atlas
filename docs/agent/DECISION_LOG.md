@@ -392,3 +392,42 @@ IMPACT: Future implementing agents create or update the handoff file
 RELATED JIRA: DOM-004
 RELATED DOCUMENTS: docs/agent/HANDOFF_PROTOCOL.md
 ```
+
+### DEC-0008
+```
+DATE: 2026-09-14
+TYPE: Product
+DECISION: Approve the bounded DOM-006 manual Fixed Commitment CRUD contract.
+STATUS: Approved
+AUTHORITY: Explicit product-owner approval in the DOM-006 planning conversation,
+           followed by authorization to implement the revised plan.
+CONTEXT: The review records claimed Fixed Commitment endpoints had been added,
+         but the current API document lacked them. Recurrence, deletion,
+         overlap and replay behavior needed explicit boundaries.
+CHOSEN OPTION: POST /fixed-commitments and GET/PATCH/DELETE /fixed-commitments/{id};
+    authenticated JWT ownership, indistinguishable missing/foreign 404s,
+    no collection/range endpoint. Always Fixed. Manual creation assigns manual;
+    screenshot_import is a permitted persistence value but never client-supplied
+    through manual CRUD. Future import requires DEC-0001 approval.
+    Nullable recurrence storage only; public writes accept omission/null and
+    reject non-null values. No invented recurrence grammar or engine.
+    Physical DELETE returns 204 with immutable fixed_commitment.deleted in the
+    same transaction; no Cancelled state. Overlaps are allowed, with no movement
+    or collision rejection. Repeated POST creates distinct entities; no persisted
+    idempotency infrastructure. Scheduling, recovery, OCR/import, calendar
+    integrations and frontend redesign are excluded.
+WHY: Deliver the approved domain persistence/API increment without inventing
+     behavior owned by later scheduling, recurrence or import stories.
+IMPACT: 02 section 1.11, 12 section 5.1, 13 physical mapping, 10 event contract,
+        DOM-006 traceability, V8 and implementation handoff.
+RELATED JIRA: DOM-006 (Jira itself unchanged)
+RELATED DOCUMENTS: 02, 03, 10, 12, 13; DEC-0001
+IMPLEMENTATION DETAILS: Constant Fixed tier rather than duplicate mutable
+    storage; source strings with DB check, matching existing domain patterns;
+    strict local request types/unknown-field rejection; UTC DATETIME(6) mapping,
+    truncation before positive-duration validation and UTC year range 1000–9999;
+    owned row locks for PATCH/DELETE; snapshot event payloads; no-op PATCH adds
+    no event. Historical category migration tests remain pinned to V7.
+FOLLOW-UP: Define active recurrence semantics and scheduling/recovery/import
+    integration in their owning stories. These do not block DOM-006.
+```

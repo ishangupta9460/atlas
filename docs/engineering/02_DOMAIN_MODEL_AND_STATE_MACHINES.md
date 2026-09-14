@@ -68,6 +68,7 @@
 ### 1.11 Fixed Commitment / Calendar Event
 - **Fields:** id, user_id, title, start_time, end_time, source (`manual` | `screenshot_import`), recurrence_rule (nullable).
 - **Invariant:** always Flexibility Tier = Fixed; the only entity type that Stage 0 removes from the movable candidate set entirely (Master Spec §1.11).
+- **Approved DOM-006 boundary (DEC-0008):** manual CRUD persists reservations independently of scheduling. Overlaps and repeated creates are allowed. Source is server-controlled; manual creation uses `manual`, while future approved import may use `screenshot_import`. Public recurrence input is null-only; the nullable storage field has no recurrence semantics in this story. Physical user deletion writes an immutable deletion event in the same transaction, with no cancellation lifecycle state. API contract: `12` §5.1.
 
 ### 1.12 Event Log Entry
 - Owned entirely by `10_EVENT_LOG.md`. Referenced here only to note that most entities above have a "reason"/history relationship to it, not a duplicated field.
