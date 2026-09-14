@@ -14,6 +14,19 @@ CREATE TABLE categories (
 
 CREATE INDEX idx_categories_user_id ON categories(user_id);
 
+-- V6 intentionally permitted any nullable BIGINT here because Category did
+-- not yet exist. Such values cannot identify a user-defined Category, so
+-- retain the Recurring Intention while clearing only unresolved references
+-- before the deferred FK is enforced.
+UPDATE recurring_intentions
+SET category_id = NULL
+WHERE category_id IS NOT NULL
+  AND NOT EXISTS (
+      SELECT 1
+      FROM categories
+      WHERE categories.id = recurring_intentions.category_id
+  );
+
 ALTER TABLE recurring_intentions
     ADD CONSTRAINT fk_recurring_intentions_category
         FOREIGN KEY (category_id) REFERENCES categories(id);
