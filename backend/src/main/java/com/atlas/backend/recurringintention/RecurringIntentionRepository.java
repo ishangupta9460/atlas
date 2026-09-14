@@ -5,4 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface RecurringIntentionRepository extends JpaRepository<RecurringIntention, Long> {
     Optional<RecurringIntention> findByIdAndUserId(Long id, Long userId);
+    boolean existsByCategoryId(Long categoryId);
 }
