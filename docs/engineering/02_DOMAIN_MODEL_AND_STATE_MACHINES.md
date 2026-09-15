@@ -27,6 +27,23 @@
 - **Not schedulable.**
 
 ### 1.4 Commitment / Task
+
+**Approved DOM-003 contract (DEC-0009):** owner `user_id` is required and immutable.
+Title and free-text completion criterion may be null/blank only while defining Draft;
+both nonblank establish Ready on create/update. After leaving Draft neither may be cleared.
+Description is nullable. `category_id` is nullable. Importance is copied from an explicit
+value or the Category default, in that order; absence of both is a validation error. Store
+that effective value; later category/default edits do not recompute it. Flexibility uses an
+explicit value or category default on creation, with no universal fallback. PATCH preserves
+stored importance/flexibility unless explicitly supplied.
+`own_deadline` is a nullable absolute Java Instant. Input requires an explicit offset or Z;
+normalize to UTC and truncate to microseconds before persistence/audit. Read as UTC ISO-8601.
+No date-only/local-timezone inference. Timezone preferences, DST/recurrence, local calendar
+rendering and deadline scheduling are later concerns. `is_hard_consequence` defaults false
+until a validated classification exists; DOM-003 exposes no classifier or public flag setter.
+`user_moved_flag` starts false; no movement behavior is introduced. Completion belief is
+DECIMAL(5,2), 0..100, initially 0, and not publicly writable here; EXEC-004 owns reporting.
+No stored typed-roadmap-node-origin field is required in this increment.
 - **Purpose:** a concrete, schedulable piece of work.
 - **Fields:** id, milestone_id (nullable — a Commitment can exist outside any roadmap, per Master Spec §1.4), goal_id (nullable, derivable via milestone if present), title, description, completion_criterion (free text, Master Spec §1.19), own_deadline (nullable), is_hard_consequence (boolean — set via AI inference from task context, with user confirmation surfaced only when the classification is consequential to a scheduling decision, never a mandatory checkbox; see `07_AI_ARCHITECTURE.md` §3 `classify_hard_consequence` proposal type), importance (enum: `low` | `medium` | `high` | `critical`, defaulted from category, per-task override — resolved, no numeric scale), flexibility_tier (enum: Fixed | Protected | Flexible | Optional — see `06`/Master Spec §1.7), category_id, work_state, user_moved_flag (boolean, set by manual drag/edit — Master Spec §1.21), created_at.
 - **Relationships:** optionally belongs to a Milestone; has many Scheduled Blocks over its life; has many Resources (many-to-many via a join entity); may have Dependencies (self-referential many-to-many, "blocks"/"blocked_by").
@@ -58,6 +75,10 @@
 - **Resource Feedback (separate, not a Resource field):** see `06_ROADMAP_AND_RESOURCE_SYSTEM.md` §3 for the three-tier feedback model — owned there, not here.
 
 ### 1.9 Category / Tag
+- **DOM-003 dependency extension (DEC-0009):** nullable `default_importance`, constrained to
+  `low`/`medium`/`high`/`critical`. Existing categories get no fabricated default. Create/update
+  may set it; PATCH omission preserves and explicit null clears. Existing Commitment importance
+  remains unchanged. Category deletion is refused while Commitments or Recurring Intentions reference it.
 - **Fields:** id, user_id, name, default_flexibility_tier, color.
 - **Invariant:** user-defined; Atlas does not hardcode cross-category importance ordering (Master Spec §1.7).
 
@@ -104,6 +125,15 @@
 | Paused | User explicitly resumes | Explicit user action | Active | Re-enters candidate pool | `goal.resumed` |
 
 ### 2.3 Commitment/Task — Work State
+
+**DEC-0009 implementation boundary:** persisted values are `draft`, `ready`, `deferred`,
+`in_progress`, `completed`, `cancelled`. Only the four transition rows below are implemented
+in DOM-003. All other transitions are rejected, including deferral/reactivation/cancellation
+and reopening. The earlier review recorded additional values/events but did not retain their
+complete transition rows in this document; this is not permission to invent their guards.
+Only readiness is exposed through domain CRUD. The other three guards are internal execution
+integration seams, not session/progress endpoints. Completed/cancelled are not reopened.
+Work State is never directly PATCHable. DEC-0003 cancellation workflow remains proposed DOM-008.
 `Draft → Ready → In Progress → Completed`
 
 | Current | Trigger | Result | Event |

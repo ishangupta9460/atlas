@@ -431,3 +431,39 @@ IMPLEMENTATION DETAILS: Constant Fixed tier rather than duplicate mutable
 FOLLOW-UP: Define active recurrence semantics and scheduling/recovery/import
     integration in their owning stories. These do not block DOM-006.
 ```
+
+### DEC-0009
+```
+DATE: 2026-09-15
+TYPE: Product
+STATUS: Approved
+AUTHORITY: Explicit product-owner approval of the final DOM-003 implementation plan,
+           subsequent absolute-instant deadline decision, and implementation authorization.
+DECISION: DOM-003 delivers the permanent Commitment foundation while preserving FOUND-003.
+CHOSEN OPTION: V9 adds commitments and nullable Category default_importance. Public API is
+    POST /commitments and GET/PATCH /commitments/{id} only. Six Work State values persist;
+    only draft->ready, ready->in_progress, in_progress->completed and in_progress->ready
+    are implemented domain transitions. Execution transitions require their documented
+    execution/user context and have no public endpoint in DOM-003. All other transitions
+    are rejected. No direct Work State PATCH.
+    Missing/blank title or criterion means Draft; both complete establish Ready. Neither
+    defining field may be cleared after Draft. Category is optional. Explicit importance
+    wins over category default, otherwise validation fails. Effective importance is stored;
+    category/default edits never silently rewrite it. No inheritance-tracking infrastructure.
+    Progress is DECIMAL(5,2), 0..100, initially 0; reporting/correction and idempotency belong
+    to EXEC-004, not this story. Deadline is nullable Instant: explicit-offset ISO input,
+    UTC DATETIME(6), microsecond truncation, UTC ISO response. No date-only/local input.
+    Creation/update/readiness events are ordered and atomic using the existing Event system.
+    Legacy tasks, /api/tasks, TodayScreen and task history remain intact, with no dual writes
+    or conversion. Coordinated Today/execution cutover belongs to later scheduling/execution.
+WHY: Establish the full domain without bypassing execution prerequisites or breaking the
+     existing loop. This supersedes earlier immediate-Phase-2-cutover wording.
+IMPACT: 02, 03, 10, 12, 13, 18, 19; minimal Category contract extension; V9; DOM-003 handoff.
+OUT OF SCOPE: scheduling, recovery, AI, recurrence, sessions, dependency graph, cancellation
+    workflow, progress endpoints, Today cutover, calendar integration. DEC-0003 remains intact.
+IMPLEMENTATION DETAILS: checked lowercase strings; owned mutation locks; false server flags;
+    UTC Instant-to-LocalDateTime persistence converter independent of default timezone;
+    reject UTC dates outside MySQL years 1000..9999; category default omission preserves on
+    PATCH and explicit null clears; no-op PATCH emits nothing. No terminal reopening.
+RELATED JIRA: DOM-003 (Jira unchanged); EXEC-004; proposed DOM-008.
+```

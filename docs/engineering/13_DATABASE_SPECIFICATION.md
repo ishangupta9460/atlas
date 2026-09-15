@@ -53,3 +53,21 @@ Flyway-managed, versioned migrations, consistent with the original backlog's Spr
 ## 6. Genuine Gaps / Requires Product Decision
 
 *(Resolved — see §1 above, `idempotency_keys` table.)*
+
+## DOM-003 Physical Mapping (DEC-0009, V9)
+
+V9 adds nullable checked `categories.default_importance` (VARCHAR(16), low/medium/high/critical)
+and creates `commitments`: generated BIGINT id; required owner FK; nullable goal/milestone/category
+FKs; nullable VARCHAR(255) title and TEXT description/completion_criterion; nullable UTC
+DATETIME(6) own_deadline; checked required importance/flexibility/work_state strings;
+false-default hard-consequence/movement booleans; DECIMAL(5,2) current_completion_pct default 0
+and constrained 0..100; required UTC DATETIME(6) created_at. Work State permits draft/ready/
+deferred/in_progress/completed/cancelled. Ready/in_progress/completed require defining text;
+Milestone linkage requires a Goal. Application validation also checks Unicode blankness and
+same-owner/consistent Goal chains, which ordinary FKs alone do not establish.
+Indexes: (goal_id,work_state), (user_id,work_state,id), plus FK-supporting indexes.
+Instant fields use explicit UTC conversion to DATETIME wall values and microsecond truncation;
+no JVM/session default timezone interpretation. Existing categories receive null importance.
+V1–V8 remain unchanged. V9 does not rename/drop/convert tasks or rewrite events; the legacy
+Event.task_id FK remains intact. No cascade deletion is added. MySQL DDL may implicitly commit;
+upgrade verification must not assume transactional rollback of schema operations.

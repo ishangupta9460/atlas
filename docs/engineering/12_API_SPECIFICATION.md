@@ -64,7 +64,7 @@ The current-user identity is derived only from the validated JWT; `/api/auth/me`
 
 ### 1.2 Temporary Phase 0 task-loop API
 
-**[TEMPORARY — FOUND-003, 2026-09-13]** — these authenticated `/api/tasks` routes prove the Phase 0 walking skeleton only. They operate on the deliberately minimal `tasks` and `events` tables introduced by Flyway V2/V3; they are **not** the permanent Commitment API and must be superseded when DOM-003 lands. They must not be extended to carry full Commitment, scheduling, Focus Session, or Event Log behavior.
+**[TEMPORARY — FOUND-003, 2026-09-13]** — these authenticated `/api/tasks` routes prove the Phase 0 walking skeleton only. They operate on the deliberately minimal `tasks` and `events` tables introduced by Flyway V2/V3; they are **not** the permanent Commitment API and remain operational during DOM-003 under DEC-0009 until the coordinated scheduling/execution cutover. They must not be extended to carry full Commitment, scheduling, Focus Session, or Event Log behavior.
 
 | Method | Route | Purpose |
 |---|---|---|
@@ -96,6 +96,55 @@ All four routes require `Authorization: Bearer <token>` and derive the user sole
 | POST | `/roadmaps/import/{importId}/approve` | Commits approved subset → creates Roadmap/Milestone/Commitment/Resource entities, hands off to Scheduling Engine |
 
 ## 4. Commitments / Tasks
+
+### Approved DOM-003 API (DEC-0009)
+
+Only POST `/commitments` (201), GET `/commitments/{id}` (200), PATCH `/commitments/{id}`
+(200) ship in this increment. The progress routes in the eventual API table below belong to
+EXEC-004; Resources to ROAD-003. No collection, delete, cancel, start or session route is added.
+
+Create/PATCH accept only `title`, `description`, `completionCriterion`, `ownDeadline`,
+`milestoneId`, `goalId`, `categoryId`, `importance`, `flexibilityTier`. Unknown fields and
+server-controlled identity/owner/state/progress/flags/provenance are rejected. String inputs
+are not coerced from numbers/booleans. IDs are positive JSON integers or null. Title is at
+most 255 characters and may be absent/blank in Draft. Description/criterion are nullable text.
+Missing/blank title OR criterion means Draft; both complete establish Ready. After Draft,
+neither may be cleared. No generic Work State setter or mark-ready endpoint exists.
+
+Importance creation precedence: explicit enum > category default > 400 validation error.
+Flexibility: explicit enum > category default > 400 validation error. Explicit null for either
+enum is invalid. Category is nullable. Changing category preserves stored importance/flexibility.
+Milestone resolves through the owned Roadmap/Goal chain; derive Goal if omitted and reject a
+conflicting explicit Goal. Detaching Milestone preserves the existing direct Goal unless Goal
+is explicitly cleared/replaced too. Every relationship must belong to the JWT owner.
+
+`ownDeadline` is null or an explicit-offset ISO-8601 date-time (including Z), parsed as Instant,
+normalized to UTC, truncated to microseconds and limited to UTC years 1000..9999 for MySQL.
+Example input `2026-09-20T18:30:00.123456789+05:30` returns `2026-09-20T13:00:00.123456Z`.
+Malformed, date-only and offset-free input returns 400. No default/local timezone is inferred.
+PATCH omission preserves any field; explicit null clears permitted nullable fields, including
+ownDeadline, subject to defining-field protection after Draft. Unchanged PATCH adds no event.
+
+Response fields: `id`, `milestoneId`, `goalId`, `categoryId`, `title`, `description`,
+`completionCriterion`, `ownDeadline`, `isHardConsequence`, `importance`, `flexibilityTier`,
+`workState`, `userMovedFlag`, `currentCompletionPct`, `createdAt`. No Resource implementation
+is claimed by this DOM increment. Current completion defaults to 0.00 and is not changed by
+CRUD. Hard-consequence/movement flags default false and are server-controlled.
+
+All routes require JWT auth. Missing/invalid auth is 401 UNAUTHORIZED. Missing or foreign
+Commitment/relationship lookup is 404 COMMITMENT_NOT_FOUND with the same sanitized message.
+Malformed/invalid input is 400 VALIDATION_ERROR; prohibited transitions/clearing defining fields
+are 409 INVALID_COMMITMENT_STATE. Error shape is `{error_code,message}`. Reads include all owned
+states. Ordinary edits do not reopen terminal states. CRUD has no persisted replay guarantee;
+repeated creates create distinct records, even with a repeated Idempotency-Key. §1's requirement
+continues to apply when execution/progress endpoints are implemented.
+
+Category API extension: existing `/categories` create/read/update responses include nullable
+`defaultImportance`. Allowed values are low/medium/high/critical. PATCH omission preserves it;
+null clears it. Invalid values/types produce 400 VALIDATION_ERROR. Defaults are configuration,
+not retroactive Commitment mutations. Category deletion rejects any Commitment reference.
+
+### Eventual full Commitment API
 
 | Method | Route | Purpose |
 |---|---|---|
