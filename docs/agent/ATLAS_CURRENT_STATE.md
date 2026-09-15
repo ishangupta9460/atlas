@@ -6,14 +6,14 @@
 
 ## Current Phase
 
-Phase 1 — Domain Breadth, Part 1 — is complete. Phase 2 — Domain Breadth, Part 2 — has begun: `DOM-006` is complete; `DOM-003` is next in `18_IMPLEMENTATION_PLAN_AND_DEFINITION_OF_DONE.md`.
+Phase 1 — Domain Breadth, Part 1 — is complete. Phase 2 — Domain Breadth, Part 2 — has begun: `DOM-006` is complete; `DOM-003` implementation is on its feature branch, real Aiven verification complete and awaiting human review / merge authorization.
 
 ## Repository
 
 - Repository: `E:\ISHAN-WORK\atlas\project-atlas`
 - Primary development branch: `develop`
 - Current commit: `31562bd` — `Merge pull request #6 from ishangupta9460/feature/DOM-006-fixed-commitment`.
-- Working tree contains uncommitted documentation changes and Postman artifacts; nothing was staged or committed during verification/cleanup documentation work.
+- DOM-003 changes are unstaged and uncommitted; legacy Task/Today and V1�V8 remain unchanged.
 
 ## Completed Work
 
@@ -28,10 +28,39 @@ Phase 1 — Domain Breadth, Part 1 — is complete. Phase 2 — Domain Breadth, 
 | DOM-005 | Complete / merged | Category work, V6-to-V7 upgrade coverage, and the valid post-V7 link assertion are in `develop`. |
 | DOM-006 | Complete / merged | PR #6 merged into `develop` (`31562bd`); automated suite, real Aiven smoke test and event-history verification passed. Temporary account cleanup limitation is recorded below. |
 
+## DOM-003 Verification (2026-09-15)
+
+- On `feature/DOM-003-commitment-full-model`; not merged. Independent review was reported as
+  PASS WITH REQUIRED CHANGES solely for missing Aiven evidence. That gap is closed; human
+  review / merge authorization remains pending. No new independent-review verdict is claimed.
+- **H2 (prior automated evidence):** full backend `mvn verify`, 89 tests, zero failures/errors/skips.
+- **Isolated MySQL 8.0.46 (prior automated evidence):** 16 API/migration/transaction tests passed,
+  including fresh V9 and populated V8 upgrade. Frontend build passed. These were not rerun for Aiven.
+- **Real Aiven MySQL:** 100 smoke checks passed, zero failed. V9 successfully applied and recorded;
+  V1-V8 files/checksums unchanged. Backend startup, health, register/login/me passed.
+- Commitment create/get/patch, omitted-field preservation, Draft/readiness protections and
+  server-controlled field rejection passed. Category defaults, explicit importance precedence
+  and unchanged stored importance after Category-default edits passed.
+- Same-owner Goal/Milestone/Category relationships and missing-ID rejection passed.
+  ownDeadline explicit-offset input, UTC response/storage, null clearing and invalid-input rejection passed.
+- Persisted task.created/task.ready/task.updated events had correct commitment identities and order.
+  Legacy POST /api/tasks, GET /api/tasks/today and start/finish regression passed; browser UI not exercised.
+- Read-only inspection of all 12 tables and foreign-key dependencies passed. Authorized cleanup
+  removed only disposable user 3, two Commitments, one Category/Goal/Roadmap/Milestone/legacy Task,
+  and 11 associated smoke events. Re-query confirmed all table row counts/content hashes matched
+  the pre-smoke baseline; unrelated users/data, five existing events and Flyway history unchanged.
+- **Aiven coverage limitations:** true cross-user relationship rejection was not exercised with
+  the single smoke account; forced event-insert rollback was not exercised on Aiven. Both remain
+  covered by automated/isolated MySQL verification reported by implementation and independent review.
+  Neither is an implementation defect; Aiven is not claimed to prove transaction rollback.
+- Aiven verification is complete (run result PASS WITH ISSUES for the coverage limits only).
+  Verification backend stopped; changes remain unstaged/uncommitted. See the DOM-003 handoff
+  for detailed evidence, exact cleanup IDs and environment separation.
+
 ## Verified Environment
 
 - Aiven MySQL connection verified.
-- Flyway V1–V8 applied successfully to the real Aiven MySQL database, including DOM-006 V8.
+- Flyway V1–V9 applied successfully to the real Aiven MySQL database, including DOM-003 V9; V1-V8 remained unchanged.
 - Backend startup and health verified against the real database.
 - DOM-006 full Maven suite passed: 68 tests, 0 failures, 0 errors, 0 skipped; focused H2/isolated MySQL checks and frontend build also passed (recorded in the handoff; not rerun for this documentation update).
 - Real Aiven smoke test passed: health, register, login, `/api/auth/me`, Fixed Commitment create/get/patch/delete, post-delete 404, recurrence rejection, allowed overlap and missing-ID behavior.
@@ -39,11 +68,12 @@ Phase 1 — Domain Breadth, Part 1 — is complete. Phase 2 — Domain Breadth, 
 
 ## Current Next Action
 
-Proceed to `DOM-003` after reading its Jira story, owning specification and handoff. DOM-006 implementation and real-database verification are complete.
+Human review / merge authorization for DOM-003 using `docs/agent/handoffs/DOM-003.md`, the reported independent review, completed Aiven evidence and approved DEC-0009. Permanent Commitments coexist with the unchanged legacy task loop until the later coordinated cutover.
 
 ## Current Blockers
 
 - No remaining DOM-006 implementation or verification blocker.
+- DOM-003 missing-Aiven-evidence blocker is closed; documented coverage limits are not implementation defects.
 
 ## Explicit Cleanup Limitation
 

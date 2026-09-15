@@ -15,6 +15,8 @@ public class Category {
     private String name;
     @Column(name = "default_flexibility_tier", nullable = false, length = 16)
     private String defaultFlexibilityTier;
+    @Column(name = "default_importance", length = 16)
+    private String defaultImportance;
     @Column(nullable = false, length = 255)
     private String color;
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -26,6 +28,8 @@ public class Category {
     public Long getUserId() { return userId; }
     public String getName() { return name; }
     public String getDefaultFlexibilityTier() { return defaultFlexibilityTier; }
+    public String getDefaultImportance() { return defaultImportance; }
+    void setDefaultImportance(String value) { defaultImportance = value; }
     public String getColor() { return color; }
     public Instant getCreatedAt() { return createdAt; }
 
