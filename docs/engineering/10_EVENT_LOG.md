@@ -23,6 +23,11 @@ Undo, explainability, and analytics are all queries over the same underlying eve
 
 ## 3. Immutability
 
+**DOM-007 event contract (DEC-0010):** `task.dependency_added` and `task.dependency_removed`
+use actor `user` and entity type `commitment` with `entity_id` equal to the blocked Commitment.
+Payloads include `blockingCommitmentId` and `blockedCommitmentId`. Each write is atomic with
+the edge insert or delete. Duplicate add emits no event.
+
 **DOM-006 event contract (DEC-0008):** `fixed_commitment.created`, `fixed_commitment.updated`, and `fixed_commitment.deleted` use actor `user` and entity type `fixed_commitment`. Payloads hold respectively `after`, `before`/`after`, and `before` snapshots including identity, owner, title, UTC times, source, nullable recurrence and Fixed tier. These writes are atomic with the reservation mutation. No-op PATCH adds no event. Physical reservation deletion preserves every prior event and adds its deletion snapshot; it never rewrites history.
 
 Event Log entries are never edited or deleted after creation. A correction (e.g., progress belief-state change, `02` §1.7) is itself a new event, not a rewrite of a prior one — this preserves the "what actually happened" record even when current belief changes.
