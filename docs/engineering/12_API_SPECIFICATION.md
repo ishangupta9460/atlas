@@ -144,6 +144,28 @@ Category API extension: existing `/categories` create/read/update responses incl
 null clears it. Invalid values/types produce 400 VALIDATION_ERROR. Defaults are configuration,
 not retroactive Commitment mutations. Category deletion rejects any Commitment reference.
 
+### Approved DOM-007 dependency API (DEC-0010)
+
+Directed edges use `13`'s `blocking_commitment_id → blocked_commitment_id`. Path `{id}` is the
+blocked Commitment. Request body `{ "blockingCommitmentId": number }` only. Responses are
+`{ blockingCommitmentId, blockedCommitmentId }`. GET returns **direct inbound** edges sorted by
+blocker ID. Transitive expansion is not added to `CommitmentResponse` or any cancellation API.
+
+| Method | Route | Success |
+|---|---|---|
+| POST | `/commitments/{id}/dependencies` | `201 Created` new edge; `200 OK` duplicate existing edge (no second event) |
+| GET | `/commitments/{id}/dependencies` | `200 OK`, JSON array of direct inbound edges |
+| DELETE | `/commitments/{id}/dependencies/{blockingCommitmentId}` | `204 No Content` |
+
+Self-edges and malformed/non-positive IDs are `400 VALIDATION_ERROR`. Missing or foreign
+Commitments are indistinguishable `404 COMMITMENT_NOT_FOUND`. A write that would cycle is
+`409 DEPENDENCY_CYCLE`. Cycle detection on create is unbounded; it never accepts a cycle
+because a lookahead bound was reached. Duplicate POST is a no-op besides returning the
+existing relation. Add and remove persist `task.dependency_added` / `task.dependency_removed`
+on entity type `commitment` (blocked id) in the same transaction, actor `user`, payload both
+IDs. Graph mutations for one owner are serialized. No work-state, scheduling, or cancellation
+side effects.
+
 ### Eventual full Commitment API
 
 | Method | Route | Purpose |

@@ -65,7 +65,7 @@ For every Jira story, this document answers: what does it implement, which docum
 | `DOM-004` | Recurring Intention entity | `02` §1.5 | DOM-001 | Implemented; independently reviewed across two rounds — PASS; ready for human merge verification. |
 | `DOM-005` | Category/Tag entity + defaults | `02` §1.9 | DOM-001 | Fully specified — `02` §1.9. |
 | `DOM-006` | Fixed Commitment / Calendar Event entity | `02` §1.11 | DOM-001 | Approved scope: manual authenticated CRUD, Fixed/source invariants, null-only public recurrence, allowed overlaps, distinct repeated creates, physical deletion with atomic events. Contract restored in `12` §5.1; DEC-0008 records product approval. Implementation handoff: `docs/agent/handoffs/DOM-006.md`; independent review and human verification remain required. Scheduling/recovery/import remain later work. |
-| `DOM-007` | Dependency modeling | `02` §1.4, `04` §2.5 | DOM-003 | Fully specified — `02` §1.4, `04` §2.5. |
+| `DOM-007` | Dependency modeling | `02` §1.4, `04` §2.5 | DOM-003 | Approved scope: V10 join table, C1 HTTP surface, unbounded cycle detection on create, atomic dependency events. Bounded lookahead is internal for SCH-007. Evidence: `docs/agent/handoffs/DOM-007.md`; independent review and human verification pending. |
 
 ### Event Log
 
