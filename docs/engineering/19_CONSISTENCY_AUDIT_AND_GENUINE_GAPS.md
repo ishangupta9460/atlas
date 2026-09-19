@@ -61,3 +61,15 @@ Per this document's own resolution process: items 1, 2, 3, and 10 above are prod
 **Implementation readiness: green for the reviewed core; documentation package now complete.** As of the October reconstruction pass, all 19 numbered documents plus the Master Spec exist. The 8 documents that were missing during the September 2026 review (`01`, `03`, `06`, `08`, `11`, `14`, `16`, `17`) have been reconstructed from evidence already present in the package — every citation to them from `02`–`19` and from Jira was checked against the reconstructed section numbers and no contradiction was found (see `MISSING_SPEC_RECONSTRUCTION_REPORT.md` for the full evidence trail and confidence classification of every reconstructed requirement).
 
 **This is not the same as saying every open question is resolved.** The reconstruction surfaced three new open product decisions that did not exist as named questions before (screenshot-import approval-gate policy, repeated-manual-move preference handling, and the cancellation-cascade question already known from the prior pass), all recorded in their owning documents and consolidated in `MISSING_SPEC_RECONSTRUCTION_REPORT.md` §4. Additionally, requirements in the reconstructed documents are tagged EXPLICIT / STRONGLY INFERRED / OPEN PRODUCT DECISION at the point they're stated — a STRONGLY INFERRED tag means the requirement is architecturally necessary given everything else in the package, not that it was stated verbatim anywhere, and should be confirmed with the product owner before being treated as equivalent in authority to an EXPLICIT one. The next decision point is resolving the open product decisions list, followed by tooling/platform selection for turning this package into working code.
+
+## DOM-003 implementation clarification (DEC-0009)
+
+The earlier audit's claim that all reviewed state-transition rows were already present was
+not true of the checked-in 02/05 documents. User-approved DOM-003 scope now explicitly uses
+six Work State values but implements only four proven transitions; missing deferral/reactivation/
+cancellation guards must not be invented. Cancellation policy remains DEC-0003 and its later story.
+The absolute-instant deadline decision resolves DOM-003's final schema/API blocker: explicit-offset
+input, UTC microsecond DATETIME storage, UTC response. Category default importance and legacy
+Task/Today retention are approved scope adjustments. Immediate Phase-2 placeholder removal is
+superseded by coordinated later cutover. 02/03/10/12/13/18 carry the bounded current contracts.
+No remaining DOM-003 product blocker; future scheduling/calendar semantics remain outside scope.

@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    url: jdbc:mysql://atlas-ishangupta-6491.l.aivencloud.com:15955/defaultdb?sslMode=REQUIRED
+    username: avnadmin
+    password: ${AIVEN_DB_PASSWORD}
+
+  flyway:
+    enabled: true

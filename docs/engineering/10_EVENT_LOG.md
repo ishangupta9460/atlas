@@ -23,6 +23,13 @@ Undo, explainability, and analytics are all queries over the same underlying eve
 
 ## 3. Immutability
 
+**DOM-007 event contract (DEC-0010):** `task.dependency_added` and `task.dependency_removed`
+use actor `user` and entity type `commitment` with `entity_id` equal to the blocked Commitment.
+Payloads include `blockingCommitmentId` and `blockedCommitmentId`. Each write is atomic with
+the edge insert or delete. Duplicate add emits no event.
+
+**DOM-006 event contract (DEC-0008):** `fixed_commitment.created`, `fixed_commitment.updated`, and `fixed_commitment.deleted` use actor `user` and entity type `fixed_commitment`. Payloads hold respectively `after`, `before`/`after`, and `before` snapshots including identity, owner, title, UTC times, source, nullable recurrence and Fixed tier. These writes are atomic with the reservation mutation. No-op PATCH adds no event. Physical reservation deletion preserves every prior event and adds its deletion snapshot; it never rewrites history.
+
 Event Log entries are never edited or deleted after creation. A correction (e.g., progress belief-state change, `02` §1.7) is itself a new event, not a rewrite of a prior one — this preserves the "what actually happened" record even when current belief changes.
 
 ## 4. Consumers
@@ -41,3 +48,19 @@ Per `01_SYSTEM_ARCHITECTURE.md` §4: any transaction that changes schedule state
 ## 6. Genuine Gaps / Requires Product Decision
 
 None identified — this is a purely infrastructural document with no open product questions.
+
+## DOM-003 Event Contract (DEC-0009)
+
+Use existing events storage, entity_type `commitment`, permanent entity_id and null legacy
+`task_id`. Actor is server-derived (`user` for the implemented commands). `task.created`
+has an after snapshot; `task.updated` and `task.ready` have before/after snapshots including
+owner, relationships, fields, flags, progress and Work State. Deadlines are UTC ISO strings
+of the stored microsecond-normalized instant. All events share the mutation transaction.
+Create Draft emits created. Create Ready emits created (Draft snapshot), then ready. Draft
+PATCH completing definition emits updated, then ready. Ordinary edits emit updated; no-op
+PATCH emits nothing. Insertion IDs order events even when timestamps coincide.
+Internal guarded execution transitions emit task.started/task.completed/task.partial when
+invoked with the required context; there is no public execution/progress API in DOM-003.
+No task.progress_changed, deferred/reactivated or cancellation workflow is introduced.
+Legacy task.finished events remain untouched. Any event failure rolls back the full mutation
+and preceding event inserts. No generic Event schema redesign is required.

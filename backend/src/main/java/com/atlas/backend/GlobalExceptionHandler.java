@@ -2,6 +2,17 @@ package com.atlas.backend;
 
 import com.atlas.backend.auth.EmailAlreadyTakenException;
 import com.atlas.backend.auth.InvalidCredentialsException;
+import com.atlas.backend.task.InvalidTaskStateException;
+import com.atlas.backend.task.TaskNotFoundException;
+import com.atlas.backend.goal.GoalNotFoundException;
+import com.atlas.backend.goal.InvalidGoalStateException;
+import com.atlas.backend.roadmap.MilestoneNotFoundException;
+import com.atlas.backend.roadmap.RoadmapAlreadyExistsException;
+import com.atlas.backend.roadmap.RoadmapImmutableException;
+import com.atlas.backend.roadmap.RoadmapNotFoundException;
+import com.atlas.backend.recurringintention.RecurringIntentionNotFoundException;
+import com.atlas.backend.category.CategoryInUseException;
+import com.atlas.backend.category.CategoryNotFoundException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +76,72 @@ public class GlobalExceptionHandler {
                 "message", ex.getMessage()
         );
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    @ExceptionHandler(TaskNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleTaskNotFound(TaskNotFoundException ex) {
+        Map<String, Object> body = Map.of(
+                "error_code", "TASK_NOT_FOUND",
+                "message", ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    @ExceptionHandler(InvalidTaskStateException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidTaskState(InvalidTaskStateException ex) {
+        Map<String, Object> body = Map.of(
+                "error_code", "INVALID_TASK_STATE",
+                "message", ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler(GoalNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleGoalNotFound(GoalNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                "error_code", "GOAL_NOT_FOUND", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidGoalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidGoalState(InvalidGoalStateException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                "error_code", "INVALID_GOAL_STATE", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(RecurringIntentionNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleRecurringIntentionNotFound(RecurringIntentionNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                "error_code", "RECURRING_INTENTION_NOT_FOUND", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(CategoryNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleCategoryNotFound(CategoryNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error_code", "CATEGORY_NOT_FOUND", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(CategoryInUseException.class)
+    public ResponseEntity<Map<String, Object>> handleCategoryInUse(CategoryInUseException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error_code", "CATEGORY_IN_USE", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(RoadmapNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleRoadmapNotFound(RoadmapNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error_code", "ROADMAP_NOT_FOUND", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(MilestoneNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleMilestoneNotFound(MilestoneNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error_code", "MILESTONE_NOT_FOUND", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(RoadmapImmutableException.class)
+    public ResponseEntity<Map<String, Object>> handleRoadmapImmutable(RoadmapImmutableException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error_code", "ROADMAP_IMMUTABLE", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(RoadmapAlreadyExistsException.class)
+    public ResponseEntity<Map<String, Object>> handleRoadmapAlreadyExists(RoadmapAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error_code", "ROADMAP_ALREADY_EXISTS", "message", ex.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)

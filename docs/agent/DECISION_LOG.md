@@ -334,3 +334,161 @@ IMPACT: `12_API_SPECIFICATION.md` §1.1 documents the approved contracts and the
 RELATED JIRA: FOUND-002
 RELATED DOCUMENTS: 12_API_SPECIFICATION.md, 15_SECURITY_AND_PRIVACY.md §1
 ```
+
+### DEC-0006
+```
+DATE: 2026-09-13
+TYPE: Implementation
+DECISION: Reverted an out-of-scope edit made by a documentation-sync
+          agent to 19_CONSISTENCY_AUDIT_AND_GENUINE_GAPS.md during a
+          task explicitly scoped to exactly three files (ATLAS_CURRENT_STATE.md,
+          03_REQUIREMENTS_TRACEABILITY.md, 12_API_SPECIFICATION.md §1.2).
+STATUS: Approved
+CONTEXT: The doc-sync agent was given an explicit SCOPE section naming
+         three files and a "WHAT YOU MUST NOT DO" instruction to touch
+         nothing else. It nonetheless added a status paragraph to
+         19_CONSISTENCY_AUDIT_AND_GENUINE_GAPS.md §6. The added content
+         was factually accurate and non-contradictory, but the file was
+         not in scope.
+OPTIONS CONSIDERED:
+  - Keep the edit since it was harmless and correct.
+  - Revert the edit and record the scope violation explicitly.
+CHOSEN OPTION: Revert; record the violation here rather than let it
+               pass silently.
+WHY: Per docs/agent/DEVELOPMENT_RULES.md's Scope Control section, an
+     agent quietly expanding scope on a documentation task is the same
+     failure mode as quietly expanding scope on a code task, even when
+     the specific edit is harmless. Tolerating "small and harmless"
+     scope creep erodes the review discipline the whole multi-agent
+     workflow depends on. Reverting and logging it, rather than
+     silently accepting or silently reverting, keeps the violation
+     visible for future agents and for human review.
+IMPACT: No code or product-behavior impact. Establishes precedent that
+        scope violations on documentation tasks are treated with the
+        same rigor as on implementation tasks.
+RELATED JIRA: None.
+RELATED DOCUMENTS: docs/agent/DEVELOPMENT_RULES.md (Scope Control),
+                   docs/agent/HANDOFF_PROTOCOL.md
+```
+
+### DEC-0007
+```
+DATE: 2026-09-13
+TYPE: Implementation
+DECISION: Per-story handoffs live in docs/agent/handoffs/<jira-key>.md.
+STATUS: Approved
+CONTEXT: DOM-004 is the first implementation task requiring a handoff
+         after HANDOFF_PROTOCOL.md established the convention but before
+         the repository contained a handoff directory.
+OPTIONS CONSIDERED:
+  - Store handoffs beside individual feature branches.
+  - Store all handoffs under docs/agent/handoffs/ keyed by Jira story.
+CHOSEN OPTION: docs/agent/handoffs/<jira-key>.md.
+WHY: This follows HANDOFF_PROTOCOL.md's explicit fallback, keeps durable
+     task state in a discoverable shared location, and avoids coupling
+     handoff visibility to a local branch checkout.
+IMPACT: Future implementing agents create or update the handoff file
+        for their assigned Jira key in this directory.
+RELATED JIRA: DOM-004
+RELATED DOCUMENTS: docs/agent/HANDOFF_PROTOCOL.md
+```
+
+### DEC-0008
+```
+DATE: 2026-09-14
+TYPE: Product
+DECISION: Approve the bounded DOM-006 manual Fixed Commitment CRUD contract.
+STATUS: Approved
+AUTHORITY: Explicit product-owner approval in the DOM-006 planning conversation,
+           followed by authorization to implement the revised plan.
+CONTEXT: The review records claimed Fixed Commitment endpoints had been added,
+         but the current API document lacked them. Recurrence, deletion,
+         overlap and replay behavior needed explicit boundaries.
+CHOSEN OPTION: POST /fixed-commitments and GET/PATCH/DELETE /fixed-commitments/{id};
+    authenticated JWT ownership, indistinguishable missing/foreign 404s,
+    no collection/range endpoint. Always Fixed. Manual creation assigns manual;
+    screenshot_import is a permitted persistence value but never client-supplied
+    through manual CRUD. Future import requires DEC-0001 approval.
+    Nullable recurrence storage only; public writes accept omission/null and
+    reject non-null values. No invented recurrence grammar or engine.
+    Physical DELETE returns 204 with immutable fixed_commitment.deleted in the
+    same transaction; no Cancelled state. Overlaps are allowed, with no movement
+    or collision rejection. Repeated POST creates distinct entities; no persisted
+    idempotency infrastructure. Scheduling, recovery, OCR/import, calendar
+    integrations and frontend redesign are excluded.
+WHY: Deliver the approved domain persistence/API increment without inventing
+     behavior owned by later scheduling, recurrence or import stories.
+IMPACT: 02 section 1.11, 12 section 5.1, 13 physical mapping, 10 event contract,
+        DOM-006 traceability, V8 and implementation handoff.
+RELATED JIRA: DOM-006 (Jira itself unchanged)
+RELATED DOCUMENTS: 02, 03, 10, 12, 13; DEC-0001
+IMPLEMENTATION DETAILS: Constant Fixed tier rather than duplicate mutable
+    storage; source strings with DB check, matching existing domain patterns;
+    strict local request types/unknown-field rejection; UTC DATETIME(6) mapping,
+    truncation before positive-duration validation and UTC year range 1000–9999;
+    owned row locks for PATCH/DELETE; snapshot event payloads; no-op PATCH adds
+    no event. Historical category migration tests remain pinned to V7.
+FOLLOW-UP: Define active recurrence semantics and scheduling/recovery/import
+    integration in their owning stories. These do not block DOM-006.
+```
+
+### DEC-0009
+```
+DATE: 2026-09-15
+TYPE: Product
+STATUS: Approved
+AUTHORITY: Explicit product-owner approval of the final DOM-003 implementation plan,
+           subsequent absolute-instant deadline decision, and implementation authorization.
+DECISION: DOM-003 delivers the permanent Commitment foundation while preserving FOUND-003.
+CHOSEN OPTION: V9 adds commitments and nullable Category default_importance. Public API is
+    POST /commitments and GET/PATCH /commitments/{id} only. Six Work State values persist;
+    only draft->ready, ready->in_progress, in_progress->completed and in_progress->ready
+    are implemented domain transitions. Execution transitions require their documented
+    execution/user context and have no public endpoint in DOM-003. All other transitions
+    are rejected. No direct Work State PATCH.
+    Missing/blank title or criterion means Draft; both complete establish Ready. Neither
+    defining field may be cleared after Draft. Category is optional. Explicit importance
+    wins over category default, otherwise validation fails. Effective importance is stored;
+    category/default edits never silently rewrite it. No inheritance-tracking infrastructure.
+    Progress is DECIMAL(5,2), 0..100, initially 0; reporting/correction and idempotency belong
+    to EXEC-004, not this story. Deadline is nullable Instant: explicit-offset ISO input,
+    UTC DATETIME(6), microsecond truncation, UTC ISO response. No date-only/local input.
+    Creation/update/readiness events are ordered and atomic using the existing Event system.
+    Legacy tasks, /api/tasks, TodayScreen and task history remain intact, with no dual writes
+    or conversion. Coordinated Today/execution cutover belongs to later scheduling/execution.
+WHY: Establish the full domain without bypassing execution prerequisites or breaking the
+     existing loop. This supersedes earlier immediate-Phase-2-cutover wording.
+IMPACT: 02, 03, 10, 12, 13, 18, 19; minimal Category contract extension; V9; DOM-003 handoff.
+OUT OF SCOPE: scheduling, recovery, AI, recurrence, sessions, dependency graph, cancellation
+    workflow, progress endpoints, Today cutover, calendar integration. DEC-0003 remains intact.
+IMPLEMENTATION DETAILS: checked lowercase strings; owned mutation locks; false server flags;
+    UTC Instant-to-LocalDateTime persistence converter independent of default timezone;
+    reject UTC dates outside MySQL years 1000..9999; category default omission preserves on
+    PATCH and explicit null clears; no-op PATCH emits nothing. No terminal reopening.
+RELATED JIRA: DOM-003 (Jira unchanged); EXEC-004; proposed DOM-008.
+```
+
+### DEC-0010
+```
+DATE: 2026-09-19
+TYPE: Architectural
+STATUS: Approved
+AUTHORITY: Product-owner instruction to implement DOM-007 first (then SCH-007), freezing
+           the C1 HTTP/event/schema contract that was not previously in `12`.
+DECISION: DOM-007 implements directed Commitment dependencies per `13` and C1.
+CHOSEN OPTION: V10 `commitment_dependency` with two FKs, unique edge, self-edge CHECK, no
+    cascade. Routes: POST/GET `/commitments/{id}/dependencies` and DELETE
+    `.../dependencies/{blockingCommitmentId}` where path id is the blocked item.
+    201 new edge; 200 duplicate without a second event; 400 self/malformed; 404 missing or
+    foreign (sanitized); 409 cycle. Unbounded cycle detection on write. Owner graph mutations
+    serialize on the users row. Events `task.dependency_added` / `task.dependency_removed`
+    are atomic with the edge change. Bounded lookahead is an internal read for SCH-007 and
+    reports truncation; it is not a public transitive API.
+WHY: Jira requires join table, cycle detection on create, and API endpoints. `12` had no
+     dependency routes; C1 was the only complete proposed contract.
+IMPACT: V10; dependency package; 10, 12, 13; DOM-007 handoff.
+OUT OF SCOPE: SCH-007 ranking, cancellation cascade, work-state changes, estimated-effort
+    fields, expanding CommitmentResponse with transitive graphs.
+RELATED JIRA: DOM-007; SCH-007
+RELATED DOCUMENTS: 02 §1.4; 04 §2.5; 13; 01 §4; C1 in ATLAS_PARALLEL_WORK_PLAN.md
+```

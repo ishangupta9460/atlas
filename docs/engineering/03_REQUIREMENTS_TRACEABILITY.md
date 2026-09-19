@@ -16,6 +16,7 @@ For every Jira story, this document answers: what does it implement, which docum
 - **Partially specified** — the cited section exists but has a known incompleteness: an acceptance-criteria text that hasn't caught up to a spec correction, or a sub-behavior the owning document flags as open.
 - **Blocked by open product decision** — the cited section explicitly defers a decision (marked OPEN PRODUCT DECISION in its owning document) that must be resolved before this story can be built as more than a stub.
 - **Missing specification** — no section anywhere in the package defines this behavior, despite Jira or another document implying it should exist. (None of the 91 stories fall in this category as of this reconstruction pass — see §4 for genuine gaps that exist despite full story coverage, and the reconstruction report for the one behavior — task cancellation — that has full domain-model support but *no story at all*.)
+- **Complete / merged** — implementation, required review, and merge into `develop` are complete; the remainder of the entry retains its specification-completeness evidence.
 
 ## 2. Sprint 0–15 → Jira Epic Disposition
 
@@ -50,21 +51,21 @@ For every Jira story, this document answers: what does it implement, which docum
 
 | Story | Requirement | Owning Spec | Dependencies | Status |
 |---|---|---|---|---|
-| `FOUND-001` | Repo & CI setup | `01` §5, `17` §7 | none | Fully specified — `01` §5, `17` §7 now exist and match the sub-tasks exactly. |
-| `FOUND-002` | Auth (JWT) | `15` §1 | FOUND-001 | Fully specified — `15` §1. |
-| `FOUND-003` | Walking skeleton loop | `18` §1 Phase 0 | FOUND-002 | Fully specified — `18` §1 Phase 0. |
+| `FOUND-001` | Repo & CI setup | `01` §5, `17` §7 | none | Complete / merged — `01` §5 and `17` §7 remain fully specified and match the sub-tasks exactly. |
+| `FOUND-002` | Auth (JWT) | `15` §1 | FOUND-001 | Complete / merged — JWT auth, the V1 user migration, and the approved §1.1 auth contracts are implemented in `develop`; `15` §1 remains fully specified. |
+| `FOUND-003` | Walking skeleton loop | `18` §1 Phase 0 | FOUND-002 | Complete / merged — the V2/V3 placeholder task/event migrations and bare Today loop are implemented in `develop`; `18` §1 Phase 0 remains fully specified. |
 
 ### Domain Model
 
 | Story | Requirement | Owning Spec | Dependencies | Status |
 |---|---|---|---|---|
-| `DOM-001` | Goal entity + Lifecycle/Planning state | `02` §1.1, §2.1–2.2 | FOUND-003 | Fully specified — `02` §1.1, §2.1–2.2. |
-| `DOM-002` | Roadmap/Milestone entity | `02` §1.2–1.3 | DOM-001 | Fully specified — `02` §1.2–1.3. |
-| `DOM-003` | Commitment/Task full model | `02` §1.4, §5 | DOM-002 | Partially specified — `02` §1.4/§2.3/§5 now correctly enumerate `deferred`/`cancelled` work_state values (fixed in the September 2026 review pass), but this story's own acceptance criteria text still says only "incl. ... work_state" and should be updated to name the full value set explicitly (Jira change recommended, see `REVIEW_CHANGELOG.md` #1). |
-| `DOM-004` | Recurring Intention entity | `02` §1.5 | DOM-001 | Fully specified — `02` §1.5. |
+| `DOM-001` | Goal entity + Lifecycle/Planning state | `02` §1.1, §2.1–2.2 | FOUND-003 | Implemented; independently reviewed across two rounds — PASS; merged pending human verification. |
+| `DOM-002` | Roadmap/Milestone entity | `02` §1.2–1.3 | DOM-001 | Implemented; independently reviewed across two rounds — PASS; merged pending human verification. |
+| `DOM-003` | Commitment/Task full model | `02` �1.4, �1.7, �2.3, �5; DEC-0009 | DOM-002; approved minimal DOM-005 default-importance extension | Approved scope: permanent model, V9, three CRUD routes, six state values/four guards, atomic events, absolute UTC deadline. Legacy Task/Today retained; execution/progress/cutover remain later work. Implementation evidence: docs/agent/handoffs/DOM-003.md; independent review and human verification pending. |
+| `DOM-004` | Recurring Intention entity | `02` §1.5 | DOM-001 | Implemented; independently reviewed across two rounds — PASS; ready for human merge verification. |
 | `DOM-005` | Category/Tag entity + defaults | `02` §1.9 | DOM-001 | Fully specified — `02` §1.9. |
-| `DOM-006` | Fixed Commitment / Calendar Event entity | `02` §1.11 | DOM-001 | Fully specified — `02` §1.11; API surface gap (no endpoints existed) fixed in `12` §5 during the September 2026 review. |
-| `DOM-007` | Dependency modeling | `02` §1.4, `04` §2.5 | DOM-003 | Fully specified — `02` §1.4, `04` §2.5. |
+| `DOM-006` | Fixed Commitment / Calendar Event entity | `02` §1.11 | DOM-001 | Approved scope: manual authenticated CRUD, Fixed/source invariants, null-only public recurrence, allowed overlaps, distinct repeated creates, physical deletion with atomic events. Contract restored in `12` §5.1; DEC-0008 records product approval. Implementation handoff: `docs/agent/handoffs/DOM-006.md`; independent review and human verification remain required. Scheduling/recovery/import remain later work. |
+| `DOM-007` | Dependency modeling | `02` §1.4, `04` §2.5 | DOM-003 | Approved scope: V10 join table, C1 HTTP surface, unbounded cycle detection on create, atomic dependency events. Bounded lookahead is internal for SCH-007. Evidence: `docs/agent/handoffs/DOM-007.md`; independent review and human verification pending. |
 
 ### Event Log
 

@@ -1,140 +1,92 @@
 # Atlas Current State
 
-## 1. Last Updated
+## Last Updated
 
-2026-09-13
+2026-09-15
 
-## 2. Current Phase
+## Current Phase
 
-Documentation and agent governance setup is complete. **FOUND-002** has passed final independent review and awaits human verification; it is not marked complete.
+Phase 1 — Domain Breadth, Part 1 — is complete. Phase 2 — Domain Breadth, Part 2 — has begun: `DOM-006` is complete; `DOM-003` implementation is on its feature branch, real Aiven verification complete and awaiting human review / merge authorization.
 
-## 3. Current Repository
+## Repository
 
-Repository path:
-`E:\ISHAN-WORK\atlas\project-atlas`
+- Repository: `E:\ISHAN-WORK\atlas\project-atlas`
+- Primary development branch: `develop`
+- Current commit: `31562bd` — `Merge pull request #6 from ishangupta9460/feature/DOM-006-fixed-commitment`.
+- DOM-003 changes are unstaged and uncommitted; legacy Task/Today and V1�V8 remain unchanged.
 
-GitHub remote:
-`https://github.com/ishangupta9460/atlas`
-
-Main branch:
-`main`
-
-Development branch:
-`develop`
-
-Current baseline commit:
-`d63d963`
-
-Commit message:
-`docs: establish Atlas specification and agent governance baseline`
-
-**Note:** This chat session has no filesystem or git access to the repository above (it lives on the user's local Windows machine). The commit reference is taken as given rather than independently verified. Before relying on it, run `git log -1` (or equivalent) in the actual repo to confirm the baseline hasn't moved.
-
-## 4. Product Specification State
-
-Atlas specification is currently baselined. Reference:
-- `docs/engineering/01–19`
-- `docs/product/atlas-master-product-spec-v1.md`
-- `docs/review/`
-
-(Contents of those documents are not duplicated here.)
-
-## 5. Agent Governance State
-
-The following are recorded as existing:
-- `AGENTS.md`
-- `docs/agent/AGENT_WORKFLOW.md`
-- `docs/agent/DEVELOPMENT_RULES.md`
-- `docs/agent/TESTING_RULES.md`
-- `docs/agent/HANDOFF_PROTOCOL.md`
-- `docs/agent/DECISION_LOG.md`
-- `docs/agent/ATLAS_CURRENT_STATE.md`
-
-**Note:** UNKNOWN — verify before proceeding. This session cannot confirm these files are actually present in the repository; it can only record what was specified.
-
-## 6. Approved Product Decisions
-
-### Screenshot Fixed-Commitment Import
-Review → edit → explicit approval → active Fixed Commitment.
-
-### Repeated Manual Movement
-Repeated behavior → observation → user confirmation → preference saved. No silent learning.
-
-### Task Cancellation
-Show affected dependents → user selects which to cancel → explicit confirmation → no silent cascade. Cancelled ≠ Deleted.
-
-## 7. Implementation Status
+## Completed Work
 
 | Story | Status | Evidence |
 |---|---|---|
-| FOUND-001 | Complete | Repo/CI foundation verified |
-| FOUND-002 | Ready for human verification / not yet approved | JWT auth implementation and approved API contracts exist on `feature/FOUND-002-jwt-auth`; human verification remains required before merge. |
-| FOUND-003 | Not started / not yet verified | Walking skeleton not present in baseline |
+| FOUND-001 | Complete / merged | Foundation and CI work are in `develop`. |
+| FOUND-002 | Complete / merged | JWT authentication and the Aiven profile are in `develop`. |
+| FOUND-003 | Complete / merged | Walking-skeleton task loop and bare Today screen were merged via `ea33227`, `ce7b838`, and `198b50d`. |
+| DOM-001 | Complete / merged | Goal entity and state-machine work are in `develop`. |
+| DOM-002 | Complete / merged | Roadmap and Milestone work are in `develop`. |
+| DOM-004 | Complete / merged | Recurring Intention work is in `develop`. |
+| DOM-005 | Complete / merged | Category work, V6-to-V7 upgrade coverage, and the valid post-V7 link assertion are in `develop`. |
+| DOM-006 | Complete / merged | PR #6 merged into `develop` (`31562bd`); automated suite, real Aiven smoke test and event-history verification passed. Temporary account cleanup limitation is recorded below. |
 
-**Note:** UNKNOWN — verify before proceeding. This session has no direct visibility into the repository, so this table reflects the last known state rather than a fresh check.
+## DOM-003 Verification (2026-09-15)
 
-## 8. Verified Environment
+- On `feature/DOM-003-commitment-full-model`; not merged. Independent review was reported as
+  PASS WITH REQUIRED CHANGES solely for missing Aiven evidence. That gap is closed; human
+  review / merge authorization remains pending. No new independent-review verdict is claimed.
+- **H2 (prior automated evidence):** full backend `mvn verify`, 89 tests, zero failures/errors/skips.
+- **Isolated MySQL 8.0.46 (prior automated evidence):** 16 API/migration/transaction tests passed,
+  including fresh V9 and populated V8 upgrade. Frontend build passed. These were not rerun for Aiven.
+- **Real Aiven MySQL:** 100 smoke checks passed, zero failed. V9 successfully applied and recorded;
+  V1-V8 files/checksums unchanged. Backend startup, health, register/login/me passed.
+- Commitment create/get/patch, omitted-field preservation, Draft/readiness protections and
+  server-controlled field rejection passed. Category defaults, explicit importance precedence
+  and unchanged stored importance after Category-default edits passed.
+- Same-owner Goal/Milestone/Category relationships and missing-ID rejection passed.
+  ownDeadline explicit-offset input, UTC response/storage, null clearing and invalid-input rejection passed.
+- Persisted task.created/task.ready/task.updated events had correct commitment identities and order.
+  Legacy POST /api/tasks, GET /api/tasks/today and start/finish regression passed; browser UI not exercised.
+- Read-only inspection of all 12 tables and foreign-key dependencies passed. Authorized cleanup
+  removed only disposable user 3, two Commitments, one Category/Goal/Roadmap/Milestone/legacy Task,
+  and 11 associated smoke events. Re-query confirmed all table row counts/content hashes matched
+  the pre-smoke baseline; unrelated users/data, five existing events and Flyway history unchanged.
+- **Aiven coverage limitations:** true cross-user relationship rejection was not exercised with
+  the single smoke account; forced event-insert rollback was not exercised on Aiven. Both remain
+  covered by automated/isolated MySQL verification reported by implementation and independent review.
+  Neither is an implementation defect; Aiven is not claimed to prove transaction rollback.
+- Aiven verification is complete (run result PASS WITH ISSUES for the coverage limits only).
+  Verification backend stopped; changes remain unstaged/uncommitted. See the DOM-003 handoff
+  for detailed evidence, exact cleanup IDs and environment separation.
 
-Recorded baseline:
-- Java 17
-- Maven 3.9.16
-- Spring Boot 4.1.1
-- Backend tests passing
-- Frontend build passing
+## Verified Environment
 
-**Note:** UNKNOWN — verify before proceeding. Not independently confirmed by this session.
+- Aiven MySQL connection verified.
+- Flyway V1–V9 applied successfully to the real Aiven MySQL database, including DOM-003 V9; V1-V8 remained unchanged.
+- Backend startup and health verified against the real database.
+- DOM-006 full Maven suite passed: 68 tests, 0 failures, 0 errors, 0 skipped; focused H2/isolated MySQL checks and frontend build also passed (recorded in the handoff; not rerun for this documentation update).
+- Real Aiven smoke test passed: health, register, login, `/api/auth/me`, Fixed Commitment create/get/patch/delete, post-delete 404, recurrence rejection, allowed overlap and missing-ID behavior.
+- Real Aiven event-history verification passed using TLS and read-only SQL: commitments 1 and 2 are absent; their five created/updated/deleted events remain with matching account/entity identities.
 
-## 9. Current Next Action
+## Current Next Action
 
-**FOUND-002 — Auth (JWT)**
+Human review / merge authorization for DOM-003 using `docs/agent/handoffs/DOM-003.md`, the reported independent review, completed Aiven evidence and approved DEC-0009. Permanent Commitments coexist with the unchanged legacy task loop until the later coordinated cutover.
 
-Obtain human verification before merge. The final independent review passed after DEC-0005 approval and API-contract documentation; do not mark the story complete until human verification has passed.
+## Current Blockers
 
-## 10. Development Workflow
+- No remaining DOM-006 implementation or verification blocker.
+- DOM-003 missing-Aiven-evidence blocker is closed; documented coverage limits are not implementation defects.
 
-Jira → implementation brief → coding agent → tests → handoff → independent review → human verification → merge → Jira update
+## Explicit Cleanup Limitation
 
-See:
-- `docs/agent/AGENT_WORKFLOW.md`
-- `docs/agent/HANDOFF_PROTOCOL.md`
+- Temporary user **2**, `dom006-smoke-20260914T172433-7245ae78@example.com`, remains; it has NOT been cleaned.
+- Atlas has no implemented supported user-delete API/service. Manual deletion was intentionally NOT performed; any manual cleanup requires an explicit decision. This is a cleanup limitation, not a DOM-006 implementation defect.
+- Both temporary Fixed Commitments were deleted through the API. Read-only cleanup checks found zero rows for this user in `fixed_commitments`, `categories`, `goals`, `recurring_intentions` and `tasks`; all five Fixed Commitment events remain. No unrelated users/data were modified.
 
-## 11. Current Blockers
+## Resume Instructions
 
-None known.
+1. Read `AGENTS.md` and this file.
+2. Read the selected Jira story, its specification sections, and any handoff.
+3. Verify the repository state before making changes.
 
-## 12. Important Open Questions
+## State Maintenance Rule
 
-- Hosting/runtime target — see relevant architecture/review doc (open product decision, not yet resolved).
-- Whether the AI Proposal Layer runs in-process or as a separate service — see architecture doc once reconstructed (open product decision, not yet resolved).
-
-(The three decisions in Section 6 are resolved and not reopened here.)
-
-## 13. Last Completed Work
-
-- Specification review and reconstruction work (adversarial defect review across the reviewed doc set; reconstruction of missing docs in progress)
-- Three product decisions (Section 6) propagated
-- Agent governance files created
-- GitHub remote established
-- Documentation baseline committed and pushed
-
-## 14. Resume Instructions
-
-1. Read this file.
-2. Read `AGENTS.md`.
-3. Read the relevant Jira story.
-4. Read the relevant specification sections.
-5. Inspect actual repository state.
-6. Never assume status from this file alone when repository evidence can be checked.
-
-## 15. State Maintenance Rule
-
-At the end of every major implementation cycle, update this file with:
-- current phase
-- current Jira story
-- completed story
-- current branch
-- latest important decision
-- blocker
-- next action
-
-This file must remain a CURRENT STATE snapshot, not a history log.
+Keep this file a concise current snapshot. Update it after a major implementation or merge; do not use it as a history log.

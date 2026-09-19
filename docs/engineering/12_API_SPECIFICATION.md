@@ -62,6 +62,19 @@ A missing, malformed, expired, tampered, or otherwise invalid bearer token on `/
 
 The current-user identity is derived only from the validated JWT; `/api/auth/me` accepts no user identifier that can select another account. Auth responses never contain a plaintext password or password hash.
 
+### 1.2 Temporary Phase 0 task-loop API
+
+**[TEMPORARY — FOUND-003, 2026-09-13]** — these authenticated `/api/tasks` routes prove the Phase 0 walking skeleton only. They operate on the deliberately minimal `tasks` and `events` tables introduced by Flyway V2/V3; they are **not** the permanent Commitment API and remain operational during DOM-003 under DEC-0009 until the coordinated scheduling/execution cutover. They must not be extended to carry full Commitment, scheduling, Focus Session, or Event Log behavior.
+
+| Method | Route | Purpose |
+|---|---|---|
+| POST | `/api/tasks` | Create the caller's placeholder task from `{ "title": string }`; returns `201 Created` with a `ready` task and records `task.created`. |
+| GET | `/api/tasks/today` | Return only the caller's non-completed placeholder tasks; no scheduling, ranking, or Now/Next/Later behavior. |
+| POST | `/api/tasks/{id}/start` | Transition the caller's `ready` task to `in_progress` and record `task.started`. |
+| POST | `/api/tasks/{id}/finish` | Transition the caller's `in_progress` task to `completed` and record `task.finished`. |
+
+All four routes require `Authorization: Bearer <token>` and derive the user solely from that JWT. Missing, malformed, expired, or otherwise invalid tokens return `401 UNAUTHORIZED`. `POST /api/tasks` with a blank or over-255-character title returns `400 VALIDATION_ERROR`. Invalid transitions return `409 INVALID_TASK_STATE`; missing or foreign-owned task mutations return `404 TASK_NOT_FOUND`.
+
 ## 2. Goals
 
 | Method | Route | Purpose |
@@ -84,6 +97,77 @@ The current-user identity is derived only from the validated JWT; `/api/auth/me`
 
 ## 4. Commitments / Tasks
 
+### Approved DOM-003 API (DEC-0009)
+
+Only POST `/commitments` (201), GET `/commitments/{id}` (200), PATCH `/commitments/{id}`
+(200) ship in this increment. The progress routes in the eventual API table below belong to
+EXEC-004; Resources to ROAD-003. No collection, delete, cancel, start or session route is added.
+
+Create/PATCH accept only `title`, `description`, `completionCriterion`, `ownDeadline`,
+`milestoneId`, `goalId`, `categoryId`, `importance`, `flexibilityTier`. Unknown fields and
+server-controlled identity/owner/state/progress/flags/provenance are rejected. String inputs
+are not coerced from numbers/booleans. IDs are positive JSON integers or null. Title is at
+most 255 characters and may be absent/blank in Draft. Description/criterion are nullable text.
+Missing/blank title OR criterion means Draft; both complete establish Ready. After Draft,
+neither may be cleared. No generic Work State setter or mark-ready endpoint exists.
+
+Importance creation precedence: explicit enum > category default > 400 validation error.
+Flexibility: explicit enum > category default > 400 validation error. Explicit null for either
+enum is invalid. Category is nullable. Changing category preserves stored importance/flexibility.
+Milestone resolves through the owned Roadmap/Goal chain; derive Goal if omitted and reject a
+conflicting explicit Goal. Detaching Milestone preserves the existing direct Goal unless Goal
+is explicitly cleared/replaced too. Every relationship must belong to the JWT owner.
+
+`ownDeadline` is null or an explicit-offset ISO-8601 date-time (including Z), parsed as Instant,
+normalized to UTC, truncated to microseconds and limited to UTC years 1000..9999 for MySQL.
+Example input `2026-09-20T18:30:00.123456789+05:30` returns `2026-09-20T13:00:00.123456Z`.
+Malformed, date-only and offset-free input returns 400. No default/local timezone is inferred.
+PATCH omission preserves any field; explicit null clears permitted nullable fields, including
+ownDeadline, subject to defining-field protection after Draft. Unchanged PATCH adds no event.
+
+Response fields: `id`, `milestoneId`, `goalId`, `categoryId`, `title`, `description`,
+`completionCriterion`, `ownDeadline`, `isHardConsequence`, `importance`, `flexibilityTier`,
+`workState`, `userMovedFlag`, `currentCompletionPct`, `createdAt`. No Resource implementation
+is claimed by this DOM increment. Current completion defaults to 0.00 and is not changed by
+CRUD. Hard-consequence/movement flags default false and are server-controlled.
+
+All routes require JWT auth. Missing/invalid auth is 401 UNAUTHORIZED. Missing or foreign
+Commitment/relationship lookup is 404 COMMITMENT_NOT_FOUND with the same sanitized message.
+Malformed/invalid input is 400 VALIDATION_ERROR; prohibited transitions/clearing defining fields
+are 409 INVALID_COMMITMENT_STATE. Error shape is `{error_code,message}`. Reads include all owned
+states. Ordinary edits do not reopen terminal states. CRUD has no persisted replay guarantee;
+repeated creates create distinct records, even with a repeated Idempotency-Key. §1's requirement
+continues to apply when execution/progress endpoints are implemented.
+
+Category API extension: existing `/categories` create/read/update responses include nullable
+`defaultImportance`. Allowed values are low/medium/high/critical. PATCH omission preserves it;
+null clears it. Invalid values/types produce 400 VALIDATION_ERROR. Defaults are configuration,
+not retroactive Commitment mutations. Category deletion rejects any Commitment reference.
+
+### Approved DOM-007 dependency API (DEC-0010)
+
+Directed edges use `13`'s `blocking_commitment_id → blocked_commitment_id`. Path `{id}` is the
+blocked Commitment. Request body `{ "blockingCommitmentId": number }` only. Responses are
+`{ blockingCommitmentId, blockedCommitmentId }`. GET returns **direct inbound** edges sorted by
+blocker ID. Transitive expansion is not added to `CommitmentResponse` or any cancellation API.
+
+| Method | Route | Success |
+|---|---|---|
+| POST | `/commitments/{id}/dependencies` | `201 Created` new edge; `200 OK` duplicate existing edge (no second event) |
+| GET | `/commitments/{id}/dependencies` | `200 OK`, JSON array of direct inbound edges |
+| DELETE | `/commitments/{id}/dependencies/{blockingCommitmentId}` | `204 No Content` |
+
+Self-edges and malformed/non-positive IDs are `400 VALIDATION_ERROR`. Missing or foreign
+Commitments are indistinguishable `404 COMMITMENT_NOT_FOUND`. A write that would cycle is
+`409 DEPENDENCY_CYCLE`. Cycle detection on create is unbounded; it never accepts a cycle
+because a lookahead bound was reached. Duplicate POST is a no-op besides returning the
+existing relation. Add and remove persist `task.dependency_added` / `task.dependency_removed`
+on entity type `commitment` (blocked id) in the same transaction, actor `user`, payload both
+IDs. Graph mutations for one owner are serialized. No work-state, scheduling, or cancellation
+side effects.
+
+### Eventual full Commitment API
+
 | Method | Route | Purpose |
 |---|---|---|
 | POST | `/commitments` | Direct task creation (entry point C, `06`'s pipeline not required) |
@@ -99,6 +183,29 @@ The current-user identity is derived only from the validated JWT; `/api/auth/me`
 | POST | `/recurring-intentions` | Create |
 | GET | `/recurring-intentions/{id}` | Fetch incl. current week's remaining target |
 | PATCH | `/recurring-intentions/{id}/target` | User- or Atlas-suggested (Collaborative-tier, requires confirmation) target change |
+
+### 5.1 Fixed Commitments / Calendar Events
+
+**[APPROVED — DOM-006, DEC-0008, 2026-09-14]** — manual reservation CRUD only. This restores the missing contract referenced by the September review; it does not implement screenshot import, scheduling or recovery.
+
+| Method | Route | Request | Success |
+|---|---|---|---|
+| POST | `/fixed-commitments` | `title`, `startTime`, `endTime`, optional null `recurrenceRule` | `201 Created`, entity |
+| GET | `/fixed-commitments/{id}` | None | `200 OK`, entity |
+| PATCH | `/fixed-commitments/{id}` | Supplied `title`, `startTime`, `endTime`, or null `recurrenceRule` | `200 OK`, entity |
+| DELETE | `/fixed-commitments/{id}` | None | Physical deletion, `204 No Content` |
+
+All four routes require JWT authentication. Ownership comes exclusively from the authenticated principal. Foreign-owned and missing IDs both return `404` with `error_code: FIXED_COMMITMENT_NOT_FOUND` and `message: Fixed Commitment not found`. Missing/invalid JWT returns `401 UNAUTHORIZED`. No collection/range endpoint exists in DOM-006.
+
+Entity responses contain `id`, `title`, `startTime`, `endTime`, `source`, `recurrenceRule`, and `flexibilityTier` (always `fixed`). Manual creation always assigns `source=manual`; clients cannot supply or update `source`, ownership, or flexibility. Unknown request fields, including server-controlled fields, are rejected rather than ignored. The persistence source enum also permits `screenshot_import`, reserved for the future user-approved import flow (DEC-0001); there is no import creation endpoint in this story. Existing imported provenance is preserved during manual edits.
+
+Validation uses the standard `{error_code, message}` shape with `400 VALIDATION_ERROR`. Title must be a string containing non-whitespace text and at most 255 characters. Both times must be ISO-8601 strings with explicit offsets, normalized to UTC and truncated to microsecond precision, within UTC years 1000–9999. The resulting `endTime` must be later than `startTime` after normalization. Invalid JSON, wrong types and malformed path IDs also return sanitized 400 errors without echoing request content.
+
+PATCH omission preserves the field; explicit null is rejected for title/start/end. Empty or unchanged PATCH returns the current entity without another event. `recurrenceRule` accepts only omission or null: creation stores null, omission on PATCH preserves storage, and explicit null clears it. Every non-null recurrence input is rejected; no recurrence syntax, expansion, series editing or recurrent timezone behavior is defined by DOM-006. A future recurrence story must define those contracts before enabling non-null public writes.
+
+Overlapping and identical intervals are allowed, on both creation and update. No overlap detection, automatic movement or recovery occurs. Repeated POST creates distinct entities and events, including when an `Idempotency-Key` header is repeated; no replay guarantee or persisted key infrastructure applies to these CRUD routes. The scheduling-mutation requirement in §1 remains unchanged for its owning endpoints. Repeated DELETE returns 404 after the first successful deletion.
+
+Creation, meaningful update and deletion respectively write `fixed_commitment.created`, `fixed_commitment.updated`, and `fixed_commitment.deleted` with actor `user`, entity type `fixed_commitment`, and structured after/before-and-after/before snapshots. Each event is inserted in the same transaction as its mutation; failure rolls back both. Physical deletion retains prior history and its deletion snapshot. No Cancelled lifecycle state is introduced. Concurrent updates/deletes lock the owned row so partial updates and event snapshots reflect the latest committed state.
 
 ## 6. Scheduling
 

@@ -61,3 +61,42 @@ Two standard endpoint types — **[STrongly inferred nothing further specified]*
 1. **Hosting/runtime target** (§5 above) — the same open question already recorded in `01` §7; this document inherits it rather than duplicating a separate decision.
 2. **File storage backend** (§5) — dependent on the hosting decision above; not resolved independently here.
 3. **Specific metrics/observability platform** (§2) — an implementation choice, not flagged as blocking, consistent with how `16` §9 treats the absence of a named test framework as non-blocking for the same reason (no evidence commits to one, so none is invented).
+
+## 10. Post-DOM-006 Real-Database Verification Record
+
+The final real Aiven-backed smoke test on 2026-09-14 passed. These observed
+results supersede the earlier incomplete verification record.
+
+| Check | Result | HTTP status |
+|---|---|---|
+| Backend health | PASS — `{"status":"ok"}` | 200 |
+| Register | PASS | 201 |
+| Login | PASS | 200 |
+| `/api/auth/me` | PASS | 200 |
+| Fixed Commitment create | PASS | 201 |
+| Fixed Commitment get | PASS | 200 |
+| Fixed Commitment patch | PASS | 200 |
+| Fixed Commitment delete | PASS | 204 |
+| Post-delete GET | PASS | 404 |
+| Non-null recurrence rejection | PASS | 400 |
+| Overlapping Fixed Commitment | PASS | 201 |
+| Missing ID | PASS | 404 |
+| Event-history verification against real Aiven MySQL | PASS | Not applicable — read-only SQL |
+
+Direct read-only inspection of real Aiven MySQL confirmed that both temporary
+Fixed Commitment rows were deleted while their event history remained.
+Commitment 1 retained `fixed_commitment.created`, `fixed_commitment.updated`
+and `fixed_commitment.deleted`; commitment 2 retained
+`fixed_commitment.created` and `fixed_commitment.deleted` (it was not patched).
+Event entity IDs and payload snapshots matched the deleted commitments and
+the smoke-test account. Database inspection used TLS and modified no data.
+
+The Aiven smoke test verified persisted event history after deletion.
+Transaction rollback atomicity was established by the automated test suite,
+not by this smoke test itself.
+
+The importable Postman artifacts are
+`docs/postman/Atlas-Smoke.postman_collection.json` and
+`docs/postman/Atlas-Local-Aiven.postman_environment.json`. The smoke test was
+executed using a local HTTP client without depending on Postman. Supply local
+credentials when using the artifacts; do not commit passwords or JWTs.
