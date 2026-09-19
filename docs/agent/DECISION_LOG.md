@@ -467,3 +467,28 @@ IMPLEMENTATION DETAILS: checked lowercase strings; owned mutation locks; false s
     PATCH and explicit null clears; no-op PATCH emits nothing. No terminal reopening.
 RELATED JIRA: DOM-003 (Jira unchanged); EXEC-004; proposed DOM-008.
 ```
+
+### DEC-0010
+```
+DATE: 2026-09-19
+TYPE: Architectural
+STATUS: Approved
+AUTHORITY: Product-owner instruction to implement DOM-007 first (then SCH-007), freezing
+           the C1 HTTP/event/schema contract that was not previously in `12`.
+DECISION: DOM-007 implements directed Commitment dependencies per `13` and C1.
+CHOSEN OPTION: V10 `commitment_dependency` with two FKs, unique edge, self-edge CHECK, no
+    cascade. Routes: POST/GET `/commitments/{id}/dependencies` and DELETE
+    `.../dependencies/{blockingCommitmentId}` where path id is the blocked item.
+    201 new edge; 200 duplicate without a second event; 400 self/malformed; 404 missing or
+    foreign (sanitized); 409 cycle. Unbounded cycle detection on write. Owner graph mutations
+    serialize on the users row. Events `task.dependency_added` / `task.dependency_removed`
+    are atomic with the edge change. Bounded lookahead is an internal read for SCH-007 and
+    reports truncation; it is not a public transitive API.
+WHY: Jira requires join table, cycle detection on create, and API endpoints. `12` had no
+     dependency routes; C1 was the only complete proposed contract.
+IMPACT: V10; dependency package; 10, 12, 13; DOM-007 handoff.
+OUT OF SCOPE: SCH-007 ranking, cancellation cascade, work-state changes, estimated-effort
+    fields, expanding CommitmentResponse with transitive graphs.
+RELATED JIRA: DOM-007; SCH-007
+RELATED DOCUMENTS: 02 §1.4; 04 §2.5; 13; 01 §4; C1 in ATLAS_PARALLEL_WORK_PLAN.md
+```

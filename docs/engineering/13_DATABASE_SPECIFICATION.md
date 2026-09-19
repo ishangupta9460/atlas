@@ -54,6 +54,14 @@ Flyway-managed, versioned migrations, consistent with the original backlog's Spr
 
 *(Resolved — see §1 above, `idempotency_keys` table.)*
 
+## DOM-007 Physical Mapping (DEC-0010, V10)
+
+V10 adds `commitment_dependency`: generated BIGINT id; required FKs `blocking_commitment_id`
+and `blocked_commitment_id` to `commitments` (no ON DELETE CASCADE); unique edge
+`(blocking_commitment_id, blocked_commitment_id)`; CHECK rejecting self-edges; index on
+`blocked_commitment_id`. V1–V9 remain unchanged. Owner equality and cycle rejection are
+application-enforced in addition to FKs.
+
 ## DOM-003 Physical Mapping (DEC-0009, V9)
 
 V9 adds nullable checked `categories.default_importance` (VARCHAR(16), low/medium/high/critical)
