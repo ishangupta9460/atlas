@@ -35,7 +35,7 @@ class RecurringIntentionTransactionIntegrationTest {
     @AfterEach void cleanDatabase() {
         jdbcTemplate.execute("ALTER TABLE events DROP CONSTRAINT IF EXISTS chk_events_reject_recurring_completion");
         jdbcTemplate.execute("ALTER TABLE events DROP CONSTRAINT IF EXISTS chk_events_reject_recurring_creation");
-        eventRepository.deleteAll(); recurringIntentionRepository.deleteAll(); milestoneRepository.deleteAll(); roadmapRepository.deleteAll(); goalRepository.deleteAll(); taskRepository.deleteAll(); userRepository.deleteAll();
+        eventRepository.deleteAllForTest(); recurringIntentionRepository.deleteAll(); milestoneRepository.deleteAll(); roadmapRepository.deleteAll(); goalRepository.deleteAll(); taskRepository.deleteAll(); userRepository.deleteAll();
     }
 
     @Test

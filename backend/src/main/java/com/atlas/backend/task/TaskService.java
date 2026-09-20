@@ -27,7 +27,7 @@ public class TaskService {
     @Transactional
     public TaskResponse create(Long userId, CreateTaskRequest request) {
         Task task = taskRepository.save(Task.ready(userId, request.title()));
-        eventRepository.save(Event.of(task.getId(), "task.created"));
+        eventRepository.append(Event.of(task.getId(), "task.created"));
         return TaskResponse.from(task);
     }
 
@@ -46,7 +46,7 @@ public class TaskService {
         }
 
         task.start(Instant.now());
-        eventRepository.save(Event.of(task.getId(), "task.started"));
+        eventRepository.append(Event.of(task.getId(), "task.started"));
         return TaskResponse.from(task);
     }
 
@@ -58,7 +58,7 @@ public class TaskService {
         }
 
         task.finish(Instant.now());
-        eventRepository.save(Event.of(task.getId(), "task.finished"));
+        eventRepository.append(Event.of(task.getId(), "task.finished"));
         return TaskResponse.from(task);
     }
 

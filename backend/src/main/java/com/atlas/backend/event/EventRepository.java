@@ -1,12 +1,16 @@
 package com.atlas.backend.event;
 
 import java.util.List;
-import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.Optional;
 
-/** Repository for the minimal FOUND-003 event table. */
-public interface EventRepository extends JpaRepository<Event, Long> {
-
+/** Application-facing append-only Event Log access. */
+public interface EventRepository {
+    Event append(Event event);
+    Event appendAndFlush(Event event);
+    long count();
+    List<Event> findAll();
+    Optional<Event> findById(Long id);
     List<Event> findAllByTaskId(Long taskId);
-
     List<Event> findAllByEntityTypeAndEntityIdOrderByTimestamp(String entityType, Long entityId);
+    void deleteAllForTest();
 }

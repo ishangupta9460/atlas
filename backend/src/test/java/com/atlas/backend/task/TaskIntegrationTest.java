@@ -210,7 +210,7 @@ class TaskIntegrationTest {
     }
 
     private void cleanDatabase() {
-        eventRepository.deleteAll();
+        eventRepository.deleteAllForTest();
         taskRepository.deleteAll();
         userRepository.deleteAll();
     }

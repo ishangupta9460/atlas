@@ -116,6 +116,6 @@ class CategoryIntegrationTest {
     }
     private JsonNode json(MvcResult result) throws Exception { return objectMapper.readTree(result.getResponse().getContentAsString()); }
     private void cleanDatabase() {
-        eventRepository.deleteAll(); recurringIntentionRepository.deleteAll(); categoryRepository.deleteAll(); milestoneRepository.deleteAll(); roadmapRepository.deleteAll(); goalRepository.deleteAll(); taskRepository.deleteAll(); userRepository.deleteAll();
+        eventRepository.deleteAllForTest(); recurringIntentionRepository.deleteAll(); categoryRepository.deleteAll(); milestoneRepository.deleteAll(); roadmapRepository.deleteAll(); goalRepository.deleteAll(); taskRepository.deleteAll(); userRepository.deleteAll();
     }
 }

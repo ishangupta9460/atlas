@@ -129,12 +129,12 @@ public class GoalService {
 
     private void writeUserEvent(Goal goal, String type) {
         flushGoalStateBeforeEvent();
-        eventRepository.save(Event.forEntity("goal", goal.getId(), type, "user"));
+        eventRepository.append(Event.forEntity("goal", goal.getId(), type, "user"));
     }
 
     private void writeAtlasEvent(Goal goal, String type, String reason) {
         flushGoalStateBeforeEvent();
-        eventRepository.save(Event.forEntity("goal", goal.getId(), type, "atlas", reason));
+        eventRepository.append(Event.forEntity("goal", goal.getId(), type, "atlas", reason));
     }
 
     /**

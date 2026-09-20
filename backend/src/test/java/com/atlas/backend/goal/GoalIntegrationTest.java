@@ -132,7 +132,7 @@ class GoalIntegrationTest {
     }
     private JsonNode json(MvcResult result) throws Exception { return objectMapper.readTree(result.getResponse().getContentAsString()); }
     private void cleanDatabase() {
-        eventRepository.deleteAll();
+        eventRepository.deleteAllForTest();
         goalRepository.deleteAll();
         taskRepository.deleteAll();
         userRepository.deleteAll();

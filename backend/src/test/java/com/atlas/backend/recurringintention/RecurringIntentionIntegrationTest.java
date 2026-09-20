@@ -147,6 +147,6 @@ class RecurringIntentionIntegrationTest {
     private Long ownerId(String token) throws Exception { return json(mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token)).andExpect(status().isOk()).andReturn()).get("id").asLong(); }
     private JsonNode json(MvcResult result) throws Exception { return objectMapper.readTree(result.getResponse().getContentAsString()); }
     private void cleanDatabase() {
-        eventRepository.deleteAll(); recurringIntentionRepository.deleteAll(); milestoneRepository.deleteAll(); roadmapRepository.deleteAll(); goalRepository.deleteAll(); taskRepository.deleteAll(); userRepository.deleteAll();
+        eventRepository.deleteAllForTest(); recurringIntentionRepository.deleteAll(); milestoneRepository.deleteAll(); roadmapRepository.deleteAll(); goalRepository.deleteAll(); taskRepository.deleteAll(); userRepository.deleteAll();
     }
 }
