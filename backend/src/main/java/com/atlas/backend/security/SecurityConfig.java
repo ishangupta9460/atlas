@@ -25,7 +25,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
  *   <li>CSRF disabled — irrelevant for a stateless, token-based API.</li>
  *   <li>Sessions disabled ({@code STATELESS}) — JWTs are self-contained.</li>
  *   <li>Public routes: {@code POST /api/auth/register},
- *       {@code POST /api/auth/login}, {@code GET /api/health}.</li>
+ *       {@code POST /api/auth/login}, {@code GET /api/health}, and
+ *       {@code GET /api/health/ready}.</li>
  *   <li>All other {@code /api/**} routes require authentication.</li>
  *   <li>Unauthenticated requests receive a JSON 401 — never an HTML
  *       redirect — matching the Atlas error shape
@@ -55,6 +56,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.GET,  "/api/health").permitAll()
+                .requestMatchers(HttpMethod.GET,  "/api/health/ready").permitAll()
                 .anyRequest().authenticated())
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(this::handleAuthenticationFailure))
