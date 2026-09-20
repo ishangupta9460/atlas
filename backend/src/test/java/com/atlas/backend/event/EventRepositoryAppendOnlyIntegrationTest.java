@@ -10,15 +10,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest
 @ActiveProfiles("test")
 class EventRepositoryAppendOnlyIntegrationTest {
     @Autowired private EventRepository events;
+    @Autowired private PlatformTransactionManager transactionManager;
     @AfterEach void cleanUp() { events.deleteAllForTest(); }
 
     @Test void appendsAndPreservesPersistedEventsWhileTheBoundaryRemainsReadOnly() {
-        Event appended = events.append(Event.forEntity("commitment", 99L, "task.created", "user"));
+        Event appended = new TransactionTemplate(transactionManager).execute(status ->
+            events.append(Event.forEntity("commitment", 99L, "task.created", "user")));
         Event persisted = events.findById(appended.getId()).orElseThrow();
         assertEquals("task.created", persisted.getType());
         assertEquals("commitment", persisted.getEntityType());

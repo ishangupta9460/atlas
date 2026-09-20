@@ -45,6 +45,17 @@ Event Log entries are never edited or deleted after creation. A correction (e.g.
 
 Per `01_SYSTEM_ARCHITECTURE.md` §4: any transaction that changes schedule state, progress, or lifecycle/planning/work state must write its corresponding Event Log entry in the same transaction. This is a database-transaction-boundary requirement, detailed further in `13_DATABASE_SPECIFICATION.md` §4.
 
+**EVT-002 implementation:** application-facing `append` and `appendAndFlush` require
+an existing writable caller transaction (`MANDATORY` propagation). They never start
+an independent transaction. Domain services own the transaction; event persistence
+failures roll back the paired mutation, and subsequent failures roll back its event.
+
+Goal creation and metadata edits follow the meaningful-write requirement in `13` §4:
+`goal.created` carries an `after` snapshot; `goal.updated` carries `before` and `after`.
+Both use actor `user`, entity type `goal`, and the permanent Goal ID. Snapshots contain
+identity, owner, title, description, nullable target deadline, lifecycle and planning
+state. An unchanged patch emits no event. Existing Goal transition events are unchanged.
+
 ## 6. Genuine Gaps / Requires Product Decision
 
 None identified — this is a purely infrastructural document with no open product questions.

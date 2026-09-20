@@ -73,18 +73,21 @@ class GoalIntegrationTest {
         mockMvc.perform(post("/goals/{id}/abandon", abandonable).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.lifecycleState", is("abandoned")))
                 .andExpect(jsonPath("$.planningState", is("active")));
-        assertEquals("goal.abandoned", eventsFor(abandonable).get(0).getType());
+        assertEquals(java.util.List.of("goal.created", "goal.abandoned"),
+                eventsFor(abandonable).stream().map(com.atlas.backend.event.Event::getType).toList());
 
         long risky = createGoal(token, "Risky");
         goalService.markAtRisk(ownerId(token), risky);
         mockMvc.perform(post("/goals/{id}/risk-response", risky).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.planningState", is("active")))
                 .andExpect(jsonPath("$.lifecycleState", is("active")));
-        assertEquals("goal.risk_resolved", eventsFor(risky).get(1).getType());
+        assertEquals(java.util.List.of("goal.created", "goal.at_risk", "goal.risk_resolved"),
+                eventsFor(risky).stream().map(com.atlas.backend.event.Event::getType).toList());
         goalService.markAtRisk(ownerId(token), risky);
         mockMvc.perform(post("/goals/{id}/pause", risky).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.planningState", is("paused")));
-        assertEquals("goal.paused", eventsFor(risky).get(3).getType());
+        assertEquals(java.util.List.of("goal.created", "goal.at_risk", "goal.risk_resolved", "goal.at_risk", "goal.paused"),
+                eventsFor(risky).stream().map(com.atlas.backend.event.Event::getType).toList());
     }
 
     @Test
