@@ -49,7 +49,7 @@ class FixedCommitmentIntegrationTest {
         ownerId = user.getId();
         token = jwt.generateToken(user);
     }
-    @AfterEach void cleanup() { events.deleteAll(); repository.deleteAll(); users.deleteAll(); }
+    @AfterEach void cleanup() { events.deleteAllForTest(); repository.deleteAll(); users.deleteAll(); }
 
     @Test void crudPersistsUtcSnapshotsAndDeletionHistory() throws Exception {
         long id = create(BODY);

@@ -37,7 +37,7 @@ class TaskTransactionIntegrationTest {
         User user = userRepository.save(User.of("transaction@example.com", "not-used-in-this-test"));
         Task task = taskRepository.save(Task.ready(user.getId(), "Transactional task"));
         doThrow(new IllegalStateException("event store unavailable"))
-                .when(eventRepository).save(any());
+                .when(eventRepository).append(any());
 
         assertThrows(IllegalStateException.class, () -> taskService.start(user.getId(), task.getId()));
 

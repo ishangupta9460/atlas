@@ -103,6 +103,6 @@ public class CommitmentService {
     }
     private void event(Commitment value, String type, Map<String,Object> payload) {
         repository.flush();
-        events.saveAndFlush(Event.forEntity("commitment",value.getId(),type,"user",null,mapper.writeValueAsString(payload)));
+        events.appendAndFlush(Event.forEntity("commitment",value.getId(),type,"user",null,mapper.writeValueAsString(payload)));
     }
 }

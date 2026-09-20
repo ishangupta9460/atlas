@@ -151,7 +151,7 @@ class RoadmapIntegrationTest {
     }
     private JsonNode json(MvcResult result) throws Exception { return objectMapper.readTree(result.getResponse().getContentAsString()); }
     private void cleanDatabase() {
-        eventRepository.deleteAll();
+        eventRepository.deleteAllForTest();
         milestoneRepository.deleteAll();
         roadmapRepository.deleteAll();
         goalRepository.deleteAll();

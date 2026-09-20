@@ -82,6 +82,6 @@ public class RecurringIntentionService {
     }
     private void writeEvent(RecurringIntention intention, String type, String actor, String reason) {
         recurringIntentionRepository.flush();
-        eventRepository.save(Event.forEntity("recurring_intention", intention.getId(), type, actor, reason));
+        eventRepository.append(Event.forEntity("recurring_intention", intention.getId(), type, actor, reason));
     }
 }

@@ -105,7 +105,7 @@ class GoalStateMachineTest {
         goalService.resume(1L, 3L);
 
         ArgumentCaptor<com.atlas.backend.event.Event> events = ArgumentCaptor.forClass(com.atlas.backend.event.Event.class);
-        verify(eventRepository, times(9)).save(events.capture());
+        verify(eventRepository, times(9)).append(events.capture());
         assertEquals(java.util.List.of(
                 "goal.completed", "goal.abandoned", "goal.deferred", "goal.reactivated",
                 "goal.at_risk", "goal.risk_resolved", "goal.at_risk", "goal.paused", "goal.resumed"),

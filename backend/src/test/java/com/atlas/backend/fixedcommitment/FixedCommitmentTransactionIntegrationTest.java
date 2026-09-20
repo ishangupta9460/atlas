@@ -35,7 +35,7 @@ class FixedCommitmentTransactionIntegrationTest {
     @BeforeEach void setup() { owner = users.save(User.of("fixed-transaction@example.com", "not-used")).getId(); }
     @AfterEach void cleanup() {
         if (eventConstraintAdded) jdbc.execute("ALTER TABLE events DROP CONSTRAINT chk_dom006_reject_event");
-        events.deleteAll(); repository.deleteAll(); users.deleteAll();
+        events.deleteAllForTest(); repository.deleteAll(); users.deleteAll();
     }
 
     @Test void eventFailureRollsBackCreation() {

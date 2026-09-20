@@ -27,7 +27,7 @@ class GoalTransactionIntegrationTest {
     @AfterEach
     void cleanDatabase() {
         jdbcTemplate.execute("ALTER TABLE events DROP CONSTRAINT IF EXISTS chk_events_reject_goal_transition");
-        eventRepository.deleteAll();
+        eventRepository.deleteAllForTest();
         goalRepository.deleteAll();
         userRepository.deleteAll();
     }

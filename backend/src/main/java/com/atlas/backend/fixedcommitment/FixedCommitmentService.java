@@ -77,7 +77,7 @@ public class FixedCommitmentService {
     private void writeEvent(FixedCommitment value, String action, Map<String, Object> payload) {
         repository.flush();
         try {
-            events.saveAndFlush(Event.forEntity("fixed_commitment", value.getId(), "fixed_commitment." + action,
+            events.appendAndFlush(Event.forEntity("fixed_commitment", value.getId(), "fixed_commitment." + action,
                     "user", null, payloadMapper.writeValueAsString(payload)));
         } catch (JacksonException ex) {
             throw new IllegalStateException("Could not serialize Fixed Commitment event", ex);

@@ -96,7 +96,7 @@ public class DependencyService {
     }
 
     private void event(Commitment blocked, String type, Map<String, Object> payload) {
-        events.saveAndFlush(Event.forEntity("commitment", blocked.getId(), type, "user", null, mapper.writeValueAsString(payload)));
+        events.appendAndFlush(Event.forEntity("commitment", blocked.getId(), type, "user", null, mapper.writeValueAsString(payload)));
     }
 
     record AddResult(DependencyResponse body, boolean created) { }
