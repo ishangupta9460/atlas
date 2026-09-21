@@ -300,6 +300,33 @@ RELATED DOCUMENTS: 02_DOMAIN_MODEL_AND_STATE_MACHINES.md §2.3, §1.4,
 
 ## Technical Decisions Made During Development
 
+### DEC-0013
+```
+DATE: 2026-09-21
+TYPE: Product
+STATUS: Proposed
+DECISION: Clarify SCH-007 remaining-work measurement and Stage 5 tradeoffs.
+CONTEXT: 04 section 2 says prefer unblocking or near-completion; section 2.5 defines
+    bounded traversal (already implemented by DOM-007). Neither defines relative
+    preference when one candidate unblocks more work and another is nearer complete.
+    02/13 and Commitment have completion percentage but no estimated effort units.
+    DOM-007 handoff already flags remaining-effort units as unspecified. Percentage
+    remaining is not comparable effort across differently sized tasks. Section 2.3
+    also applies when an earlier tier cannot distinguish candidates: it permits
+    remaining-work tie resolution, but does not define its units or how Stage 5
+    first distinguishes competing dependency and near-completion advantages.
+OPEN QUESTION: Define remaining-work input/units, missing-input behavior, the
+    near-completion rule, and comparison against dependency-chain value (including
+    which downstream work states count). Do not introduce weights or thresholds
+    under implementation authority.
+IMPACT: SCH-007 ranking blocked. Safe partial fix distinguishes shared/repeated
+    dependencies from true cycles in existing bounded lookahead. Current production
+    scheduling code has only Stage 2/3/4 helpers and Stage 7 seam, no decision pipeline;
+    end-to-end Stage 0-5 scheduling assertions cannot truthfully be claimed.
+RELATED JIRA: SCH-007
+RELATED DOCUMENTS: 04 sections 2/2.3/2.5; 02 section 1.4; DOM-007 handoff
+```
+
 ### DEC-0012
 ```
 DATE: 2026-09-21

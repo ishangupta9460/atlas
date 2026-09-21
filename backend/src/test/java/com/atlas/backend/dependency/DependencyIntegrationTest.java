@@ -68,6 +68,19 @@ class DependencyIntegrationTest {
             .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("id").asLong();
     }
 
+    @Test void persistedSharedDependencyIsNotReportedAsACycle() throws Exception {
+        long root = commitment(), left = commitment(), right = commitment(), shared = commitment();
+        service.add(owner, left, root);
+        service.add(owner, right, root);
+        service.add(owner, shared, left);
+        service.add(owner, shared, right);
+        var result = service.lookahead(owner, root);
+        assertEquals(List.of(left, right, shared), result.downstreamIds());
+        assertFalse(result.cycleDetected());
+        assertFalse(result.truncated());
+        assertEquals(result, service.lookahead(owner, root));
+    }
+
     @Test void createListDuplicateAndDelete() throws Exception {
         long blocked = commitment();
         long blocking = commitment();

@@ -21,6 +21,29 @@ class DependencyLookaheadTest {
         var result = DependencyLookahead.downstream(1L, List.of(edge(1, 3), edge(1, 2), edge(2, 4), edge(3, 4)));
         assertEquals(List.of(2L, 3L, 4L), result.downstreamIds());
         assertFalse(result.truncated());
+        assertFalse(result.cycleDetected());
+    }
+
+    @Test void repeatedEdgesAreNotCyclesAndInputOrderDoesNotChangeResult() {
+        var edges = List.of(edge(1, 2), edge(1, 2), edge(2, 3), edge(1, 3));
+        var expected = DependencyLookahead.downstream(1L, edges);
+        assertEquals(List.of(2L, 3L), expected.downstreamIds());
+        assertFalse(expected.cycleDetected());
+        var reversed = new java.util.ArrayList<>(edges);
+        java.util.Collections.reverse(reversed);
+        assertEquals(expected, DependencyLookahead.downstream(1L, reversed));
+    }
+
+    @Test void emptyGraphHasNoCycle() {
+        assertEquals(new DependencyLookahead.Result(List.of(), false, false),
+            DependencyLookahead.downstream(1L, List.of()));
+    }
+
+    @Test void detectsCycleAcrossSharedBranches() {
+        var result = DependencyLookahead.downstream(1L,
+            List.of(edge(1, 2), edge(1, 3), edge(2, 4), edge(3, 4), edge(4, 3)));
+        assertEquals(List.of(2L, 3L, 4L), result.downstreamIds());
+        assertTrue(result.cycleDetected());
     }
 
     @Test void depthBoundReportsTruncationWithoutTreatingAsEmpty() {
