@@ -300,6 +300,30 @@ RELATED DOCUMENTS: 02_DOMAIN_MODEL_AND_STATE_MACHINES.md §2.3, §1.4,
 
 ## Technical Decisions Made During Development
 
+### DEC-0015
+```
+DATE: 2026-09-21
+TYPE: Implementation
+STATUS: Approved
+DECISION: OPS-001 uses Spring Boot's built-in Logstash JSON and SLF4J MDC.
+CONTEXT: 17 section 1 requires request correlation across downstream calls but no
+    specific field/header names or framework. Existing code is synchronous servlet,
+    Spring Security, domain services and transactional event persistence, using SLF4J.
+CHOSEN OPTION: Before-auth filter accepts one bounded safe X-Correlation-ID or
+    generates a UUID, echoes it, scopes correlationId MDC with finally restoration,
+    and logs request start/end. Route templates avoid raw path/query disclosure.
+    Existing loggers use built-in JSON encoding. Event attempts and actual transaction
+    outcomes provide trace points without event payloads, reasons or request content.
+    No added logging dependency, event schema, product state or auth-log subsystem.
+IMPACT: 17 section 1 documents field/propagation mechanics. Existing synchronous
+    calls inherit MDC, including transaction completion before returning to servlet.
+    No async executors or outbound clients exist; their future owners must explicitly
+    propagate this context rather than assuming MDC crosses threads or HTTP.
+RELATED JIRA: OPS-001
+RELATED DOCUMENTS: 17 section 1; 01 sections 3/4/5; 15 section 2
+REFERENCE: https://docs.spring.io/spring-boot/reference/features/logging.html
+```
+
 ### DEC-0014
 ```
 DATE: 2026-09-21
