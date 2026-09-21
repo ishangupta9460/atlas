@@ -3,6 +3,9 @@ package com.atlas.backend.goal;
 import com.atlas.backend.event.Event;
 import com.atlas.backend.event.EventRepository;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GoalService {
     private final GoalRepository goalRepository;
     private final EventRepository eventRepository;
+    private final ObjectMapper payloadMapper = new ObjectMapper();
 
     public GoalService(GoalRepository goalRepository, EventRepository eventRepository) {
         this.goalRepository = goalRepository;
@@ -19,8 +23,10 @@ public class GoalService {
 
     @Transactional
     public GoalResponse create(Long userId, CreateGoalRequest request) {
-        return GoalResponse.from(goalRepository.save(Goal.create(
-                userId, request.title(), request.description(), request.targetDeadline())));
+        Goal goal = goalRepository.save(Goal.create(
+                userId, request.title(), request.description(), request.targetDeadline()));
+        writeCrudEvent(goal, "goal.created", Map.of("after", snapshot(goal)));
+        return GoalResponse.from(goal);
     }
 
     @Transactional(readOnly = true)
@@ -29,7 +35,10 @@ public class GoalService {
     @Transactional
     public GoalResponse update(Long userId, Long goalId, UpdateGoalRequest request) {
         Goal goal = findOwnedGoal(userId, goalId);
+        Map<String, Object> before = snapshot(goal);
         goal.update(request.getTitle(), request.getTargetDeadline(), request.isTargetDeadlineProvided());
+        Map<String, Object> after = snapshot(goal);
+        if (!before.equals(after)) writeCrudEvent(goal, "goal.updated", Map.of("before", before, "after", after));
         return GoalResponse.from(goal);
     }
 
@@ -117,6 +126,24 @@ public class GoalService {
 
     private Goal findOwnedGoal(Long userId, Long goalId) {
         return goalRepository.findByIdAndUserId(goalId, userId).orElseThrow(GoalNotFoundException::new);
+    }
+
+    private Map<String, Object> snapshot(Goal goal) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("id", goal.getId());
+        snapshot.put("userId", goal.getUserId());
+        snapshot.put("title", goal.getTitle());
+        snapshot.put("description", goal.getDescription());
+        snapshot.put("targetDeadline", goal.getTargetDeadline() == null ? null : goal.getTargetDeadline().toString());
+        snapshot.put("lifecycleState", goal.getLifecycleState());
+        snapshot.put("planningState", goal.getPlanningState());
+        return snapshot;
+    }
+
+    private void writeCrudEvent(Goal goal, String type, Map<String, Object> payload) {
+        flushGoalStateBeforeEvent();
+        eventRepository.append(Event.forEntity("goal", goal.getId(), type, "user", null,
+                payloadMapper.writeValueAsString(payload)));
     }
 
     private void requireLifecycle(Goal goal, String expected, String message) {
