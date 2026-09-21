@@ -300,6 +300,28 @@ RELATED DOCUMENTS: 02_DOMAIN_MODEL_AND_STATE_MACHINES.md §2.3, §1.4,
 
 ## Technical Decisions Made During Development
 
+### DEC-0014
+```
+DATE: 2026-09-21
+TYPE: Product
+STATUS: Proposed
+DECISION: Clarify SCH-010 preference evidence and conflicting Stage 8 signals.
+CONTEXT: 04 section 2 defines time-of-day preference/minimizing switching only for
+    otherwise equivalent survivors. It does not define comparison when time-of-day
+    favors one survivor and continuity favors another, or missing evidence behavior.
+    08 section 3 requires contextual confirmation for saved preferences; 11 section 3
+    supplies learned fit to Problem B and historical probability for calibration only.
+    SCH-009 is only an evidence seam, not a selection path. No preference/slot context
+    producer or integrated survivor pipeline exists in current code.
+OPEN QUESTION: Define the Stage 8 evidence source and applicable confirmation,
+    time-of-day fit semantics, missing evidence, and conflicting continuity/preference
+    resolution. This must not reuse historical execution probability as ranking.
+IMPACT: SCH-010 blocked. No new comparator, arbitrary weights, preference persistence,
+    learned behavior, or earlier-stage pipeline is introduced in this wave.
+RELATED JIRA: SCH-010
+RELATED DOCUMENTS: 04 sections 2/2.3/3; 08 section 3; 11 section 3; SCH-009 handoff
+```
+
 ### DEC-0013
 ```
 DATE: 2026-09-21
