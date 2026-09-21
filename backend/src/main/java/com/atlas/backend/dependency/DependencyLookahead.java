@@ -32,7 +32,7 @@ public final class DependencyLookahead {
         Set<Long> seen = new HashSet<>();
         List<Long> found = new ArrayList<>();
         boolean truncated = false;
-        boolean cycleDetected = false;
+        Map<Long, Set<Long>> explored = new HashMap<>();
         seen.add(startId);
         queue.add(new long[] {startId, 0});
         while (!queue.isEmpty()) {
@@ -46,19 +46,43 @@ public final class DependencyLookahead {
             List<Long> next = new ArrayList<>(adj.getOrDefault(id, List.of()));
             next.sort(Long::compareTo);
             for (Long child : next) {
-                if (!seen.add(child)) {
-                    cycleDetected = true;
+                if (seen.contains(child)) {
+                    explored.computeIfAbsent(id, key -> new HashSet<>()).add(child);
                     continue;
                 }
                 if (found.size() >= maxCount) {
                     truncated = true;
-                    return new Result(List.copyOf(found), true, cycleDetected);
+                    return new Result(List.copyOf(found), true, containsCycle(explored));
                 }
+                seen.add(child);
+                explored.computeIfAbsent(id, key -> new HashSet<>()).add(child);
                 found.add(child);
                 queue.add(new long[] {child, depth + 1});
             }
         }
-        return new Result(List.copyOf(found), truncated, cycleDetected);
+        return new Result(List.copyOf(found), truncated, containsCycle(explored));
+    }
+
+    /** Kahn's algorithm distinguishes converging/shared edges from actual cycles.
+     * Only edges admitted by bounded traversal participate; no unbounded second walk.
+     */
+    private static boolean containsCycle(Map<Long, Set<Long>> explored) {
+        Map<Long, Integer> incoming = new HashMap<>();
+        explored.forEach((parent, children) -> {
+            incoming.putIfAbsent(parent, 0);
+            children.forEach(child -> incoming.merge(child, 1, Integer::sum));
+        });
+        ArrayDeque<Long> ready = new ArrayDeque<>();
+        incoming.forEach((id, count) -> { if (count == 0) ready.add(id); });
+        int removed = 0;
+        while (!ready.isEmpty()) {
+            Long parent = ready.removeFirst();
+            removed++;
+            for (Long child : explored.getOrDefault(parent, Set.of())) {
+                if (incoming.merge(child, -1, Integer::sum) == 0) ready.add(child);
+            }
+        }
+        return removed != incoming.size();
     }
 
     static Map<Long, List<Long>> adjacency(List<CommitmentDependency> edges) {

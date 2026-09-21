@@ -1,6 +1,12 @@
 server:
   port: ${SERVER_PORT:8080}
 
+logging:
+  structured:
+    format:
+      console: logstash
+      file: logstash
+
 spring:
   application:
     name: atlas-backend

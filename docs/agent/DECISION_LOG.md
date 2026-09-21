@@ -300,6 +300,120 @@ RELATED DOCUMENTS: 02_DOMAIN_MODEL_AND_STATE_MACHINES.md §2.3, §1.4,
 
 ## Technical Decisions Made During Development
 
+### DEC-0015
+```
+DATE: 2026-09-21
+TYPE: Implementation
+STATUS: Approved
+DECISION: OPS-001 uses Spring Boot's built-in Logstash JSON and SLF4J MDC.
+CONTEXT: 17 section 1 requires request correlation across downstream calls but no
+    specific field/header names or framework. Existing code is synchronous servlet,
+    Spring Security, domain services and transactional event persistence, using SLF4J.
+CHOSEN OPTION: Before-auth filter accepts one bounded safe X-Correlation-ID or
+    generates a UUID, echoes it, scopes correlationId MDC with finally restoration,
+    and logs request start/end. Route templates avoid raw path/query disclosure.
+    Existing loggers use built-in JSON encoding. Event attempts and actual transaction
+    outcomes provide trace points without event payloads, reasons or request content.
+    No added logging dependency, event schema, product state or auth-log subsystem.
+IMPACT: 17 section 1 documents field/propagation mechanics. Existing synchronous
+    calls inherit MDC, including transaction completion before returning to servlet.
+    No async executors or outbound clients exist; their future owners must explicitly
+    propagate this context rather than assuming MDC crosses threads or HTTP.
+RELATED JIRA: OPS-001
+RELATED DOCUMENTS: 17 section 1; 01 sections 3/4/5; 15 section 2
+REFERENCE: https://docs.spring.io/spring-boot/reference/features/logging.html
+```
+
+### DEC-0014
+```
+DATE: 2026-09-21
+TYPE: Product
+STATUS: Proposed
+DECISION: Clarify SCH-010 preference evidence and conflicting Stage 8 signals.
+CONTEXT: 04 section 2 defines time-of-day preference/minimizing switching only for
+    otherwise equivalent survivors. It does not define comparison when time-of-day
+    favors one survivor and continuity favors another, or missing evidence behavior.
+    08 section 3 requires contextual confirmation for saved preferences; 11 section 3
+    supplies learned fit to Problem B and historical probability for calibration only.
+    SCH-009 is only an evidence seam, not a selection path. No preference/slot context
+    producer or integrated survivor pipeline exists in current code.
+OPEN QUESTION: Define the Stage 8 evidence source and applicable confirmation,
+    time-of-day fit semantics, missing evidence, and conflicting continuity/preference
+    resolution. This must not reuse historical execution probability as ranking.
+IMPACT: SCH-010 blocked. No new comparator, arbitrary weights, preference persistence,
+    learned behavior, or earlier-stage pipeline is introduced in this wave.
+RELATED JIRA: SCH-010
+RELATED DOCUMENTS: 04 sections 2/2.3/3; 08 section 3; 11 section 3; SCH-009 handoff
+```
+
+### DEC-0013
+```
+DATE: 2026-09-21
+TYPE: Product
+STATUS: Proposed
+DECISION: Clarify SCH-007 remaining-work measurement and Stage 5 tradeoffs.
+CONTEXT: 04 section 2 says prefer unblocking or near-completion; section 2.5 defines
+    bounded traversal (already implemented by DOM-007). Neither defines relative
+    preference when one candidate unblocks more work and another is nearer complete.
+    02/13 and Commitment have completion percentage but no estimated effort units.
+    DOM-007 handoff already flags remaining-effort units as unspecified. Percentage
+    remaining is not comparable effort across differently sized tasks. Section 2.3
+    also applies when an earlier tier cannot distinguish candidates: it permits
+    remaining-work tie resolution, but does not define its units or how Stage 5
+    first distinguishes competing dependency and near-completion advantages.
+OPEN QUESTION: Define remaining-work input/units, missing-input behavior, the
+    near-completion rule, and comparison against dependency-chain value (including
+    which downstream work states count). Do not introduce weights or thresholds
+    under implementation authority.
+IMPACT: SCH-007 ranking blocked. Safe partial fix distinguishes shared/repeated
+    dependencies from true cycles in existing bounded lookahead. Current production
+    scheduling code has only Stage 2/3/4 helpers and Stage 7 seam, no decision pipeline;
+    end-to-end Stage 0-5 scheduling assertions cannot truthfully be claimed.
+RELATED JIRA: SCH-007
+RELATED DOCUMENTS: 04 sections 2/2.3/2.5; 02 section 1.4; DOM-007 handoff
+```
+
+### DEC-0012
+```
+DATE: 2026-09-21
+TYPE: Implementation
+STATUS: Approved
+DECISION: EVT-004 uses the documented GET /events route for raw and rendered history.
+CONTEXT: 12 section 11 supplies entity filters; section 1 supplies cursor/limit.
+    10 section 4 requires plain-language Atlas events with original reasons.
+CHOSEN OPTION: Required entity filter, optional actor filter, descending append IDs,
+    bounded page size 20/default and 100/max, events/nextCursor envelope. Descriptions
+    supplement unchanged stored fields. Unknown actions get neutral wording.
+    Owner checked from current domain row before any event lookup. Missing or
+    foreign ownership returns the same 404; no cross-user query or payload scan.
+IMPACT: 12 section 11 documents the concrete wire shape. No schema or event writes.
+    Historical fixed commitments physically deleted under DEC-0008 cannot currently
+    be authorized by a surviving entity row and fail closed; ownership retention for
+    such queries remains a limitation, not a claim of complete deleted-entity audit.
+RELATED JIRA: EVT-004
+RELATED DOCUMENTS: 10 section 4; 12 sections 1/11; 14 section 5; 15 section 2
+```
+
+### DEC-0011
+```
+DATE: 2026-09-21
+TYPE: Product
+STATUS: Proposed
+DECISION: Product-owner clarification required for EVT-003 reversible event types.
+CONTEXT: 10 section 4 and 19 section 3 resolve history immutability, but give only
+    an example block.moved -> block.move_reverted. 12 section 11 requires undo of
+    last N events. No supported-type matrix, inverse state transitions, or behavior
+    for intervening changes/repeated undo is defined. Current code has no scheduled
+    block persistence; existing domain state machines reject undocumented reversals.
+OPEN QUESTION: Which currently implemented events may be undone, what state and
+    compensating type does each produce, and how are last-N selection, repeated
+    undo and intervening edits handled? Block-move implementation would require
+    out-of-wave scheduled-block work. No product answer is selected here.
+IMPACT: EVT-003 blocked; append-only EVT-001/EVT-002 behavior remains unchanged.
+RELATED JIRA: EVT-003
+RELATED DOCUMENTS: 10 section 4; 12 section 11; 19 section 3; 02 section 2
+```
+
 ### DEC-0004
 ```
 DATE: 2026-09-13

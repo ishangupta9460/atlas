@@ -14,6 +14,20 @@
 
 Every inbound request is assigned a correlation ID at the API boundary (`12`) and that ID is propagated through every downstream call this request triggers — including any AI Proposal Layer call (`07`), any Scheduling Engine invocation (`04`), and any Event Log write (`10`) — so that a single request's full path through the system can be reconstructed from logs alone, independent of the Event Log's own `entity_type`/`entity_id` trail. **[STRONGLY INFERRED framing]:** this is deliberately a separate mechanism from the Event Log, not a duplicate of it — the Event Log answers "what changed and why, from the product's perspective" (`10` §1); structured logging with correlation IDs answers "what did the system actually do, technically, to serve this specific request," which matters for debugging failures the Event Log wouldn't capture (e.g., a request that failed before any state-changing write occurred at all).
 
+**OPS-001 implementation (DEC-0015):** Spring Boot's existing logging backend emits
+Logstash JSON to console and any configured file. Standard fields include timestamp,
+level, logger, thread and message; request logs add `correlationId`, `operation`,
+method, route template, status and elapsed `durationMs` at completion. The boundary
+filter runs before authentication. One `X-Correlation-ID` header matching
+`[A-Za-z0-9._-]{1,64}` is retained; missing, invalid or multiple values are replaced
+with a UUID. The response echoes the chosen ID. Error redispatch retains it.
+MDC propagates it through existing synchronous security/domain/event calls and is
+restored in a finally block. Event append attempts and transaction completion
+(`committed`, `rolled_back`, `unknown`) are logged without payloads or reasons.
+Request bodies, query strings, raw paths, tokens and arbitrary headers are not
+added to these logs. There are currently no async or outbound AI/HTTP invocation
+paths; introducing such a boundary must explicitly carry this context/header.
+
 ## 2. Observability (General)
 
 **[STRONGLY INFERRED]** — `18` Phase 7 lists "observability (`17`)" as a general Phase 7 hardening item without a specific sub-section citation, distinct from the specifically-cited §1 (logging) and §8 (health checks). This section covers what sits between those two: metrics/monitoring on the operational signals the rest of the package already implies matter — AI proposal latency and failure rate (feeding `17` §3's rate/cost tuning), scheduling-engine evaluation time (relevant to `04` §2.4's determinism requirement holding under load), and Event Log write-transaction success rate (directly monitoring `01` §4's transaction-boundary invariant in production, not just testing it per `16` §2). No specific metrics platform is named anywhere in the package, so none is invented here.
