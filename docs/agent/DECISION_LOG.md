@@ -300,6 +300,27 @@ RELATED DOCUMENTS: 02_DOMAIN_MODEL_AND_STATE_MACHINES.md §2.3, §1.4,
 
 ## Technical Decisions Made During Development
 
+### DEC-0012
+```
+DATE: 2026-09-21
+TYPE: Implementation
+STATUS: Approved
+DECISION: EVT-004 uses the documented GET /events route for raw and rendered history.
+CONTEXT: 12 section 11 supplies entity filters; section 1 supplies cursor/limit.
+    10 section 4 requires plain-language Atlas events with original reasons.
+CHOSEN OPTION: Required entity filter, optional actor filter, descending append IDs,
+    bounded page size 20/default and 100/max, events/nextCursor envelope. Descriptions
+    supplement unchanged stored fields. Unknown actions get neutral wording.
+    Owner checked from current domain row before any event lookup. Missing or
+    foreign ownership returns the same 404; no cross-user query or payload scan.
+IMPACT: 12 section 11 documents the concrete wire shape. No schema or event writes.
+    Historical fixed commitments physically deleted under DEC-0008 cannot currently
+    be authorized by a surviving entity row and fail closed; ownership retention for
+    such queries remains a limitation, not a claim of complete deleted-entity audit.
+RELATED JIRA: EVT-004
+RELATED DOCUMENTS: 10 section 4; 12 sections 1/11; 14 section 5; 15 section 2
+```
+
 ### DEC-0011
 ```
 DATE: 2026-09-21

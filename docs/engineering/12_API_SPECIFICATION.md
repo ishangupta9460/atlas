@@ -257,6 +257,21 @@ Creation, meaningful update and deletion respectively write `fixed_commitment.cr
 | GET | `/events?entity_type=&entity_id=` | Raw query for "what changed" UI and debugging |
 | POST | `/events/undo` | Reverses last N events for a given entity (`10` §4) |
 
+**EVT-004 query implementation:** `GET /events` requires `entity_type` and positive
+`entity_id`. Ownership is checked against the current entity using the JWT user;
+missing and foreign entities both return `404 ENTITY_NOT_FOUND`. Supported current
+entity types are `goal`, `commitment`, `task`, `recurring_intention`, and
+`fixed_commitment`. Deleted entities without a current ownership row are not exposed.
+Optional `actor=atlas` selects the on-demand "what changed" view; omission retains
+raw history for both actors, and `actor=user` is also accepted. `limit` defaults to
+20 (1–100); `cursor` is the last event ID from the preceding page. Results follow
+descending append ID, including deterministic ordering when timestamps coincide.
+Response: `{events: [{id, type, entityType, entityId, actor, timestamp, reason,
+payload, description}], nextCursor}`. A null nextCursor means no further results.
+The stored reason/payload are preserved; descriptions use known event actions and
+the original reason, without synthesizing reasons when absent. Invalid query
+parameters return `400 VALIDATION_ERROR`. No event or domain writes occur.
+
 ## 12. Data / Privacy
 
 | Method | Route | Purpose |
