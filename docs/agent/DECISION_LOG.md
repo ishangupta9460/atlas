@@ -300,6 +300,26 @@ RELATED DOCUMENTS: 02_DOMAIN_MODEL_AND_STATE_MACHINES.md §2.3, §1.4,
 
 ## Technical Decisions Made During Development
 
+### DEC-0011
+```
+DATE: 2026-09-21
+TYPE: Product
+STATUS: Proposed
+DECISION: Product-owner clarification required for EVT-003 reversible event types.
+CONTEXT: 10 section 4 and 19 section 3 resolve history immutability, but give only
+    an example block.moved -> block.move_reverted. 12 section 11 requires undo of
+    last N events. No supported-type matrix, inverse state transitions, or behavior
+    for intervening changes/repeated undo is defined. Current code has no scheduled
+    block persistence; existing domain state machines reject undocumented reversals.
+OPEN QUESTION: Which currently implemented events may be undone, what state and
+    compensating type does each produce, and how are last-N selection, repeated
+    undo and intervening edits handled? Block-move implementation would require
+    out-of-wave scheduled-block work. No product answer is selected here.
+IMPACT: EVT-003 blocked; append-only EVT-001/EVT-002 behavior remains unchanged.
+RELATED JIRA: EVT-003
+RELATED DOCUMENTS: 10 section 4; 12 section 11; 19 section 3; 02 section 2
+```
+
 ### DEC-0004
 ```
 DATE: 2026-09-13
