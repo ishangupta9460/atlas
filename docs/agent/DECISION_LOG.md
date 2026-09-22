@@ -75,6 +75,18 @@ spec.
 - WORKFLOW: `feature/ATLAS-BUILD` in the main checkout; compact `STATE.md` checkpoint
   replaces per-story handoffs for this batch per the user's explicit instructions.
 
+### DEC-0012 — Category and prerequisite UI integration
+
+- DATE: 2026-09-22; TYPE: Implementation; STATUS: Approved (implementation authority).
+- AUTHORITY: User's next coherent capability request after merged Goal Planning.
+- DECISION: Expose existing category/default and dependency mutation contracts in the
+  goal planning flow; add owner-scoped paginated literal title search for selecting
+  prerequisites across goals. Existing domain services remain the mutation authority.
+- WHY: Makes DOM-005/DOM-007 usable and completes MEM-004 category setup before scheduling.
+- IMPACT: `12` records the search contract and existing category routes. No migrations,
+  domain state changes, default recalculation, cancellation, or scheduling behavior.
+- RELATED: MEM-004/SCRUM-96, DOM-005/SCRUM-27, DOM-007/SCRUM-29, DOM-003/SCRUM-25.
+
 ## Entry Format
 
 ```

@@ -3,6 +3,7 @@ import AuthScreen, { User } from "./AuthScreen";
 import { ApiError, Client, messageOf, request } from "./api";
 import GoalsScreen from "./GoalsScreen";
 import TodayScreen from "./TodayScreen";
+import CategoriesScreen from "./CategoriesScreen";
 
 const SESSION_KEY = "atlas.session";
 function savedToken() { try { return sessionStorage.getItem(SESSION_KEY); } catch { return null; } }
@@ -17,7 +18,7 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [verificationError, setVerificationError] = useState("");
   const [retry, setRetry] = useState(0);
-  const [screen, setScreen] = useState<"goals" | "tasks">("goals");
+  const [screen, setScreen] = useState<"goals" | "tasks" | "categories">("goals");
   const activeToken = useRef(token);
   activeToken.current = token;
 
@@ -67,7 +68,7 @@ export default function App() {
     <header className="app-header"><a className="brand" href="#" onClick={e => { e.preventDefault(); setScreen("goals"); }}>atlas<span> / make room</span></a>
       <div className="account"><span>{user.email}</span><button className="text-button" onClick={() => signOut()}>Sign out</button></div>
     </header>
-    <nav aria-label="Main navigation"><button aria-current={screen === "goals" ? "page" : undefined} onClick={() => setScreen("goals")}>Goals</button><button aria-current={screen === "tasks" ? "page" : undefined} onClick={() => setScreen("tasks")}>Tasks</button></nav>
-    <main className="workspace" key={user.id}>{screen === "goals" ? <GoalsScreen client={client} /> : <TodayScreen client={client} />}</main>
+    <nav aria-label="Main navigation"><button aria-current={screen === "goals" ? "page" : undefined} onClick={() => setScreen("goals")}>Goals</button><button aria-current={screen === "tasks" ? "page" : undefined} onClick={() => setScreen("tasks")}>Tasks</button><button aria-current={screen === "categories" ? "page" : undefined} onClick={() => setScreen("categories")}>Categories</button></nav>
+    <main className="workspace" key={user.id}>{screen === "goals" ? <GoalsScreen client={client} /> : screen === "categories" ? <CategoriesScreen client={client} /> : <TodayScreen client={client} />}</main>
   </div>;
 }

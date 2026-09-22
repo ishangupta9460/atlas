@@ -35,6 +35,14 @@ public class CommitmentService {
     public record CommitmentPage(java.util.List<CommitmentResponse> commitments, Long nextCursor) {}
 
     @Transactional(readOnly=true)
+    public CommitmentPage search(Long owner, String search, Long excludeId, Long cursor, int limit) {
+        var rows = repository.searchOwned(owner, cursor == null ? Long.MAX_VALUE : cursor,
+                excludeId, search.trim(), org.springframework.data.domain.PageRequest.of(0, limit + 1));
+        var items = rows.stream().limit(limit).map(CommitmentResponse::from).toList();
+        return new CommitmentPage(items, rows.size() > limit ? items.get(items.size() - 1).id() : null);
+    }
+
+    @Transactional(readOnly=true)
     public CommitmentPage listForGoal(Long owner, Long goalId, Long cursor, int limit) {
         if (!goals.existsByIdAndUserId(goalId, owner)) throw CommitmentException.missing();
         var rows = repository.findByUserIdAndGoalIdAndIdLessThanOrderByIdDesc(owner, goalId,

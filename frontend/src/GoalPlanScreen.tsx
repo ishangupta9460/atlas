@@ -1,11 +1,14 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ApiError, Client, jsonBody, messageOf } from "./api";
+import { Category, CategoryEditor, CategorySwatch } from "./CategoriesScreen";
+import DependencyPanel from "./DependencyPanel";
 
 type Milestone = { id: number; title: string; order: number };
 type Roadmap = { id: number; milestones: Milestone[] };
 type Commitment = {
   id: number; title: string | null; completionCriterion: string | null;
   milestoneId: number | null; importance: string; flexibilityTier: string; workState: string;
+  categoryId: number | null;
 };
 type Page = { commitments: Commitment[]; nextCursor: number | null };
 const label = (value: string) => value.replace(/_/g, " ");
@@ -15,6 +18,8 @@ export default function GoalPlanScreen({ goal, client, onBack }: {
 }) {
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
   const [tasks, setTasks] = useState<Commitment[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [dependenciesFor, setDependenciesFor] = useState<number | null>(null);
   const [cursor, setCursor] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loaded, setLoaded] = useState(false);
@@ -32,9 +37,11 @@ export default function GoalPlanScreen({ goal, client, onBack }: {
     Promise.all([
       client<{ roadmap: Roadmap | null }>(`/goals/${goal.id}/roadmap`, { signal: controller.signal }),
       client<Page>(`/goals/${goal.id}/commitments`, { signal: controller.signal }),
-    ]).then(([plan, page]) => {
+      client<Category[]>("/categories", { signal: controller.signal }),
+    ]).then(([plan, page, categoryList]) => {
       if (controller.signal.aborted) return;
       setRoadmap(plan.roadmap); setTasks(page.commitments); setCursor(page.nextCursor); setLoaded(true);
+      setCategories(categoryList);
     }).catch(failure => { if (!controller.signal.aborted) setError(messageOf(failure)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
@@ -99,7 +106,7 @@ export default function GoalPlanScreen({ goal, client, onBack }: {
       <section aria-labelledby="plan-tasks-heading" className="plan-section">
         <div className="section-heading"><h2 id="plan-tasks-heading">Actionable tasks</h2><button className="primary" disabled={pending || editor !== null || editingMilestone !== null} onClick={() => { setEditor("new"); setNotice(""); }}>Add a task</button></div>
         <p className="hint">Define what done looks like to make a task ready. Scheduling comes next.</p>
-        {editor !== null && <CommitmentEditor key={editor === "new" ? "new" : editor.id} task={editor === "new" ? null : editor} goalId={goal.id} milestones={roadmap?.milestones ?? []} client={client} onClose={() => setEditor(null)} onSaved={saved => {
+        {editor !== null && <CommitmentEditor key={editor === "new" ? "new" : editor.id} task={editor === "new" ? null : editor} goalId={goal.id} milestones={roadmap?.milestones ?? []} categories={categories} onCategoryCreated={category => setCategories(items => [...items, category])} client={client} onClose={() => setEditor(null)} onSaved={saved => {
           setTasks(previous => previous.some(item => item.id === saved.id) ? previous.map(item => item.id === saved.id ? saved : item) : [saved, ...previous]);
           setEditor(null); setNotice(saved.workState === "draft" ? "Draft saved. You can define done when you're ready." : "Task saved.");
         }} />}
@@ -107,9 +114,12 @@ export default function GoalPlanScreen({ goal, client, onBack }: {
         <ul className="plan-task-list">{tasks.map(task => <li key={task.id} className="plan-task">
           <div className="badges"><span className="badge">{label(task.workState)}</span><span className="hint">{label(task.importance)} importance · {label(task.flexibilityTier)}</span></div>
           <h3>{task.title || "Untitled draft"}</h3>
+          {categories.filter(category => category.id === task.categoryId).map(category => <p className="hint" key={category.id}><CategorySwatch color={category.color} />{category.name}</p>)}
           <p>{task.completionCriterion ? `Done when: ${task.completionCriterion}` : "Still defining what done looks like."}</p>
           <p className="hint">{roadmap?.milestones.find(item => item.id === task.milestoneId)?.title ?? "Directly supports this goal"}</p>
-          <button className="text-button" disabled={pending || editor !== null || editingMilestone !== null} aria-label={`Edit ${task.title || "untitled draft"}`} onClick={() => { setEditor(task); setNotice(""); }}>Edit task</button>
+          <div className="actions"><button className="text-button" disabled={pending || editor !== null || editingMilestone !== null} aria-label={`Edit ${task.title || "untitled draft"}`} onClick={() => { setEditor(task); setDependenciesFor(null); setNotice(""); }}>Edit task</button>
+          <button disabled={pending || editor !== null || editingMilestone !== null} aria-expanded={dependenciesFor === task.id} aria-label={`Prerequisites for ${task.title || "untitled draft"}`} onClick={() => setDependenciesFor(current => current === task.id ? null : task.id)}>Prerequisites</button></div>
+          {dependenciesFor === task.id && <DependencyPanel key={task.id} task={task} client={client} />}
         </li>)}</ul>
         {cursor !== null && <button disabled={pending || editor !== null || editingMilestone !== null} onClick={() => void loadMore()}>Show more tasks</button>}
       </section>
@@ -133,31 +143,42 @@ function MilestoneEditor({ milestone, client, onSaved, onClose }: { milestone: M
     {error && <p role="alert" className="error">{error}</p>}<div className="actions"><button disabled={pending || !title.trim()}>Save milestone</button><button type="button" disabled={pending} onClick={onClose}>Cancel</button></div></form>;
 }
 
-function CommitmentEditor({ task, goalId, milestones, client, onSaved, onClose }: {
-  task: Commitment | null; goalId: number; milestones: Milestone[]; client: Client; onSaved: (value: Commitment) => void; onClose: () => void;
+function CommitmentEditor({ task, goalId, milestones, categories, onCategoryCreated, client, onSaved, onClose }: {
+  task: Commitment | null; goalId: number; milestones: Milestone[]; categories: Category[]; onCategoryCreated: (category: Category) => void; client: Client; onSaved: (value: Commitment) => void; onClose: () => void;
 }) {
   const [title, setTitle] = useState(task?.title ?? "");
   const [criterion, setCriterion] = useState(task?.completionCriterion ?? "");
   const [importance, setImportance] = useState(task?.importance ?? "");
   const [flexibility, setFlexibility] = useState(task?.flexibilityTier ?? "");
   const [milestone, setMilestone] = useState(task?.milestoneId?.toString() ?? "");
+  const [categoryId, setCategoryId] = useState(task?.categoryId?.toString() ?? "");
+  const [categoryChanged, setCategoryChanged] = useState(false);
+  const [creatingCategory, setCreatingCategory] = useState(false);
   const [step, setStep] = useState(0);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const criterionRequired = task !== null && task.workState !== "draft";
+  const category = categories.find(item => String(item.id) === categoryId);
+  const hasImportance = !!importance || (!task && !!category?.defaultImportance);
+  const hasFlexibility = !!flexibility || (!task && !!category?.defaultFlexibilityTier);
   async function save(event: FormEvent) {
     event.preventDefault();
     if (pending || !title.trim() || (criterionRequired && !criterion.trim())) return;
     if (step === 0) { setStep(1); return; }
-    if (!importance || !flexibility) return;
+    if (!hasImportance || !hasFlexibility) return;
     setPending(true); setError("");
     try { onSaved(await client<Commitment>(task ? `/commitments/${task.id}` : "/commitments", {
       method: task ? "PATCH" : "POST", ...jsonBody({ title: title.trim(), completionCriterion: criterion.trim() || null,
-        goalId, milestoneId: milestone ? Number(milestone) : null, importance, flexibilityTier: flexibility }),
+        goalId, milestoneId: milestone ? Number(milestone) : null,
+        ...(importance ? { importance } : {}), ...(flexibility ? { flexibilityTier: flexibility } : {}),
+        ...(categoryChanged ? { categoryId: categoryId ? Number(categoryId) : null } : {}) }),
     })); }
     catch (failure) { setError(messageOf(failure)); }
     finally { setPending(false); }
   }
+  if (creatingCategory) return <CategoryEditor category={null} client={client} onClose={() => setCreatingCategory(false)} onSaved={saved => {
+    onCategoryCreated(saved); setCategoryId(String(saved.id)); setCategoryChanged(true); setCreatingCategory(false);
+  }} />;
   return <form className="card commitment-editor" onSubmit={save}>
     <h3>{task ? "Shape this task" : "One concrete next step"}</h3>
     {step === 0 ? <>
@@ -165,12 +186,17 @@ function CommitmentEditor({ task, goalId, milestones, client, onSaved, onClose }
       <label htmlFor="criterion">What will done look like? <span className="hint">{criterionRequired ? "Required for a ready task" : "Leave empty to save a draft"}</span></label>
       <textarea id="criterion" value={criterion} onChange={e => setCriterion(e.target.value)} required={criterionRequired} disabled={pending} rows={3} />
     </> : <>
-      <label htmlFor="importance">How important is this task?</label><select id="importance" required value={importance} onChange={e => setImportance(e.target.value)} disabled={pending}><option value="">Choose importance</option>{["low", "medium", "high", "critical"].map(value => <option key={value} value={value}>{label(value)}</option>)}</select>
-      <label htmlFor="flexibility">How flexible is its placement?</label><select id="flexibility" required value={flexibility} onChange={e => setFlexibility(e.target.value)} disabled={pending}><option value="">Choose flexibility</option>{["fixed", "protected", "flexible", "optional"].map(value => <option key={value} value={value}>{label(value)}</option>)}</select>
+      <details open={!!categoryId}><summary>Category and defaults <span className="hint">Optional</span></summary>
+        <label htmlFor="task-category">Category</label><select id="task-category" value={categoryId} onChange={e => { setCategoryId(e.target.value); setCategoryChanged(true); }} disabled={pending}><option value="">No category</option>{categories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+        <button type="button" className="text-button" disabled={pending} onClick={() => setCreatingCategory(true)}>Create a category</button>
+        <p className="hint">{task ? "Changing category keeps this task's saved importance and flexibility." : "Use category defaults below, or choose an override for this task."}</p>
+      </details>
+      <label htmlFor="importance">How important is this task?</label><select id="importance" required={!!task || !category?.defaultImportance} value={importance} onChange={e => setImportance(e.target.value)} disabled={pending}><option value="">{!task && category?.defaultImportance ? `Use category default (${category.defaultImportance})` : "Choose importance"}</option>{["low", "medium", "high", "critical"].map(value => <option key={value} value={value}>{label(value)}</option>)}</select>
+      <label htmlFor="flexibility">How flexible is its placement?</label><select id="flexibility" required={!!task || !category?.defaultFlexibilityTier} value={flexibility} onChange={e => setFlexibility(e.target.value)} disabled={pending}><option value="">{!task && category?.defaultFlexibilityTier ? `Use category default (${category.defaultFlexibilityTier})` : "Choose flexibility"}</option>{["fixed", "protected", "flexible", "optional"].map(value => <option key={value} value={value}>{label(value)}</option>)}</select>
       <p className="hint">Fixed stays put; protected avoids disruption; flexible can move; optional yields first.</p>
       {milestones.length > 0 && <details><summary>Place under a milestone <span className="hint">Optional</span></summary><label htmlFor="task-milestone">Milestone</label><select id="task-milestone" value={milestone} onChange={e => setMilestone(e.target.value)} disabled={pending}><option value="">Directly under this goal</option>{milestones.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></details>}
     </>}
     {error && <p role="alert" className="error">{error}</p>}
-    <div className="actions">{step === 1 && <button type="button" disabled={pending} onClick={() => setStep(0)}>Back</button>}<button className="primary" disabled={pending || !title.trim() || (step === 1 && (!importance || !flexibility))}>{pending ? "Saving…" : step === 0 ? "Continue" : criterion.trim() ? "Save task" : "Save draft"}</button><button type="button" disabled={pending} onClick={onClose}>Cancel</button></div>
+    <div className="actions">{step === 1 && <button type="button" disabled={pending} onClick={() => setStep(0)}>Back</button>}<button className="primary" disabled={pending || !title.trim() || (step === 1 && (!hasImportance || !hasFlexibility))}>{pending ? "Saving…" : step === 0 ? "Continue" : criterion.trim() ? "Save task" : "Save draft"}</button><button type="button" disabled={pending} onClick={onClose}>Cancel</button></div>
   </form>;
 }

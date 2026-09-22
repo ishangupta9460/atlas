@@ -21,7 +21,7 @@ async function openPlan() {
 }
 
 it("creates a milestone and a draft task, then defines done and reopens the saved plan", async () => {
-  enqueue({ roadmap: null }, { commitments: [], nextCursor: null }, { id: 2, milestones: [] }, milestone, task);
+  enqueue({ roadmap: null }, { commitments: [], nextCursor: null }, [], { id: 2, milestones: [] }, milestone, task);
   const user = await openPlan();
   await user.type(screen.getByLabelText("What is a useful milestone?"), milestone.title);
   await user.click(screen.getByRole("button", { name: "Add milestone" }));
@@ -36,7 +36,7 @@ it("creates a milestone and a draft task, then defines done and reopens the save
   await user.selectOptions(screen.getByLabelText("Milestone"), "3");
   await user.click(screen.getByRole("button", { name: "Save draft" }));
   await screen.findByText("Draft saved. You can define done when you're ready.");
-  expect(JSON.parse(fetchMock.mock.calls[6][1].body)).toEqual({ title: task.title, completionCriterion: null, goalId: 1, milestoneId: 3, importance: "high", flexibilityTier: "flexible" });
+  expect(JSON.parse(fetchMock.mock.calls[7][1].body)).toEqual({ title: task.title, completionCriterion: null, goalId: 1, milestoneId: 3, importance: "high", flexibilityTier: "flexible" });
   const ready = { ...task, completionCriterion: "Play the verse without stopping", workState: "ready" };
   enqueue(ready);
   await user.click(screen.getByRole("button", { name: `Edit ${task.title}` }));
@@ -45,14 +45,14 @@ it("creates a milestone and a draft task, then defines done and reopens the save
   await user.click(screen.getByRole("button", { name: "Save task" }));
   await screen.findByText("ready");
   await user.click(screen.getByRole("button", { name: /All goals/ }));
-  enqueue({ roadmap: { id: 2, milestones: [milestone] } }, { commitments: [ready], nextCursor: null });
+  enqueue({ roadmap: { id: 2, milestones: [milestone] } }, { commitments: [ready], nextCursor: null }, []);
   await user.click(screen.getByRole("button", { name: "Open plan" }));
   await screen.findByText(`Done when: ${ready.completionCriterion}`);
   expect(fetchMock.mock.calls.filter(([path]) => path === "/goals/1/roadmaps")).toHaveLength(1);
 });
 
 it("retains the roadmap and milestone input when the first milestone save fails", async () => {
-  enqueue({ roadmap: null }, { commitments: [], nextCursor: null }, { id: 2, milestones: [] });
+  enqueue({ roadmap: null }, { commitments: [], nextCursor: null }, [], { id: 2, milestones: [] });
   fetchMock.mockResolvedValueOnce(reply({ message: "Save interrupted" }, 500)); enqueue(milestone);
   const user = await openPlan();
   await user.type(screen.getByLabelText("What is a useful milestone?"), milestone.title);
@@ -65,7 +65,7 @@ it("retains the roadmap and milestone input when the first milestone save fails"
 });
 
 it("renames milestones and paginates tasks", async () => {
-  enqueue({ roadmap: { id: 2, milestones: [milestone] } }, { commitments: [task], nextCursor: 5 }, { ...milestone, title: "First performance" }, { commitments: [{ ...task, id: 4, title: "Choose a song", milestoneId: null }], nextCursor: null });
+  enqueue({ roadmap: { id: 2, milestones: [milestone] } }, { commitments: [task], nextCursor: 5 }, [], { ...milestone, title: "First performance" }, { commitments: [{ ...task, id: 4, title: "Choose a song", milestoneId: null }], nextCursor: null });
   const user = await openPlan();
   await user.click(screen.getByRole("button", { name: "Rename First song" }));
   await user.clear(screen.getByLabelText("Milestone name")); await user.type(screen.getByLabelText("Milestone name"), "First performance");
@@ -73,13 +73,13 @@ it("renames milestones and paginates tasks", async () => {
   await screen.findByText("Milestone updated.");
   await user.click(screen.getByRole("button", { name: "Show more tasks" }));
   await screen.findByText("Choose a song");
-  expect(fetchMock.mock.calls[5][0]).toBe("/goals/1/commitments?cursor=5");
+  expect(fetchMock.mock.calls[6][0]).toBe("/goals/1/commitments?cursor=5");
   expect(screen.queryByRole("button", { name: "Show more tasks" })).not.toBeInTheDocument();
 });
 
 it("keeps failed task edits and prevents clearing the defining fields of ready work", async () => {
   const ready = { ...task, completionCriterion: "Play a verse", workState: "ready" };
-  enqueue({ roadmap: { id: 2, milestones: [milestone] } }, { commitments: [ready], nextCursor: null });
+  enqueue({ roadmap: { id: 2, milestones: [milestone] } }, { commitments: [ready], nextCursor: null }, []);
   fetchMock.mockResolvedValueOnce(reply({ message: "Could not save task" }, 500)); enqueue({ ...ready, title: "Practice slowly" });
   const user = await openPlan();
   await user.click(screen.getByRole("button", { name: `Edit ${task.title}` }));
@@ -93,18 +93,18 @@ it("keeps failed task edits and prevents clearing the defining fields of ready w
 });
 
 it("shows a retry after a failed plan read without presenting an empty editable plan", async () => {
-  fetchMock.mockResolvedValueOnce(reply({ message: "Plan unavailable" }, 503)); enqueue({ commitments: [], nextCursor: null });
+  fetchMock.mockResolvedValueOnce(reply({ message: "Plan unavailable" }, 503)); enqueue({ commitments: [], nextCursor: null }, []);
   const user = userEvent.setup(); render(<App />);
   await user.click(await screen.findByRole("button", { name: "Open plan" }));
   await screen.findByRole("alert");
   expect(screen.queryByRole("button", { name: "Add a task" })).not.toBeInTheDocument();
-  enqueue({ roadmap: null }, { commitments: [], nextCursor: null });
+  enqueue({ roadmap: null }, { commitments: [], nextCursor: null }, []);
   await user.click(screen.getByRole("button", { name: "Reload plan" }));
   await screen.findByRole("button", { name: "Add a task" });
 });
 
 it("clears the plan on session expiry during a save", async () => {
-  enqueue({ roadmap: { id: 2, milestones: [milestone] } }, { commitments: [task], nextCursor: null });
+  enqueue({ roadmap: { id: 2, milestones: [milestone] } }, { commitments: [task], nextCursor: null }, []);
   fetchMock.mockResolvedValueOnce(reply({ message: "Expired" }, 401));
   const user = await openPlan();
   await user.type(screen.getByLabelText("What is a useful milestone?"), "Private step");

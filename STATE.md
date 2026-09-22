@@ -1,47 +1,42 @@
 # Atlas build checkpoint — 2026-09-22
 
-CURRENT: Goal planning batch on `feature/ATLAS-BUILD`, main repository checkout.
-BASE: `2945715` (develop, PR #19 product entry). Older ATLAS_CURRENT_STATE.md is stale.
-STATUS: Implemented at `4b75e5b`; focused verification passed; independent QA pending.
-PUBLISH BLOCKER: Automatic approval review rejected git push to
-https://github.com/ishangupta9460/atlas.git as sensitive source/history egress requiring
-trusted explicit destination/payload authorization. No push or PR creation occurred.
+CURRENT: Task categories and prerequisites on feature/ATLAS-BUILD, main checkout.
+BASE: 5b8e6c0, develop PR #20. Goal Planning is merged and verified per the user.
+STATUS: Batch implemented; focused checks passed; ready for Antigravity QA.
 
 DONE:
-- Goal → optional roadmap/milestones → permanent Commitment planning UI.
-- Milestone creation/rename, direct or grouped task creation/edit, Draft → Ready via criterion.
-- Explicit importance/flexibility, paginated reopening, retry/error/session handling.
-- Owned GET /goals/{id}/roadmap and GET /goals/{id}/commitments?cursor=&limit=.
-- No migrations; existing mutation services/events and legacy task execution loop retained.
-- DOM-002/SCRUM-24, DOM-003/SCRUM-25 integration; contributes to UI-006/SCRUM-52.
-- API contracts recorded in 12 §3–4; implementation decision DEC-0011.
+- Category setup/manage UI: create, edit defaults, remove with reference-safe errors.
+- Inline category creation during task entry; defaults or explicit per-task overrides.
+- Existing task category edits preserve stored importance/flexibility; unlink supported.
+- Goal task prerequisite panel: search across goals, add, reopen, remove links.
+- Owned paginated GET /commitments?q=&excludeId=&cursor=&limit=; literal title search.
+- Existing domain services enforce cycle rejection, ownership, and atomic edge events.
+- API client handles 204 deletion responses; retry and session-expiry states covered.
+- MEM-004/SCRUM-96 and DOM-005/DOM-007/DOM-003 integration; no migrations.
 
 FILES:
-- Backend commitment: GoalCommitmentController (new), CommitmentRepository,
-  CommitmentService, CommitmentExceptionHandler; CommitmentIntegrationTest.
-- Backend roadmap: RoadmapController, RoadmapRepository, RoadmapService.
-- Frontend: GoalPlanScreen.tsx + GoalPlanScreen.test.tsx (new), GoalsScreen.tsx,
-  index.css, vite.config.ts. API specification, DECISION_LOG.md, this checkpoint.
+- Backend commitment controller, exception handler, repository, service; integration test.
+- Frontend CategoriesScreen.tsx, DependencyPanel.tsx, TaskOrganization.test.tsx (new).
+- Frontend App.tsx, GoalPlanScreen.tsx + test, api.ts, index.css, vite.config.ts.
+- API spec section 4, DEC-0012, this checkpoint.
 
 VERIFIED:
-- backend: mvn -q "-Dtest=CommitmentIntegrationTest,RoadmapIntegrationTest,CommitmentTransactionIntegrationTest" test
-- Result: 20 tests, 0 failures/errors/skips (8 + 4 + 8).
-- frontend: npm run build — TypeScript + Vite passed.
-- frontend: npm test -- --reporter=dot — 14 passed (8 existing + 6 planning).
-- git diff --check — passed. No tests weakened, deleted, or skipped.
+- backend: mvn -q "-Dtest=CommitmentIntegrationTest,CategoryIntegrationTest,DependencyIntegrationTest,DependencyTransactionIntegrationTest" test
+- Result: 23 tests, 0 failures/errors/skips (10 + 3 + 7 + 3).
+- frontend: npm test -- --reporter=dot — 22 tests passed (8 + 6 + 8).
+- frontend: npm run build — TypeScript/Vite passed after removing unused test binding.
+- git diff --check — passed. Prior planning assertions retained; mocks include categories.
 
-KNOWN FAILURES: None after fixes. Initial foreign-goal 500 fixed by including the
-new controller in CommitmentExceptionHandler; regression now passes.
-LIMITS: No full backend suite or live browser/backend verification this batch.
-Scheduling/execution integration, AI interview, imports, cancellation remain later work.
-No new product questions; no schema or state-machine changes.
+KNOWN FAILURES: None after the unused test-binding compile fix.
+LIMITS: No full backend regression or live browser/backend run; Antigravity owns these.
+No scheduling, task cancellation, or permanent-task execution cutover implemented.
+No open product questions or mutation contract changes introduced in this batch.
 
-NEXT: Obtain explicit authorization to push this batch to the origin above and create
-a draft PR to develop; then Antigravity full regression, live integration/browser checks,
-independent review, and human verification before merge.
+NEXT: Publish/review the prepared batch PR to develop, then Antigravity full regression,
+live integration/browser QA and independent review; human verification before merge.
+PR body prepared in the local temporary atlas-task-organization-pr.md file.
 
-ENVIRONMENT: npm ci restored missing lockfile dependencies. Vite requires execution
-outside the sandbox (esbuild spawn EPERM inside); Git/gh also need sandbox escalation.
-Do not treat sandbox gh auth failure as invalid credentials: escalated gh auth passed.
-Do not add existing untracked .cursor/, docs/agent/plans/,
-docs/agent/handoffs/ATLAS-PARALLEL-PLAN.md or docs/jira/Jira.csv to this batch.
+ENVIRONMENT: npm/Vite and Git publishing require sandbox escalation. Never work on
+production data for these checks; backend verification used isolated H2 test databases.
+Existing untracked .cursor/, docs/agent/plans/, docs/agent/handoffs/ATLAS-PARALLEL-PLAN.md
+and docs/jira/Jira.csv are unrelated and intentionally excluded from commits.

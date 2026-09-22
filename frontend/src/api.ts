@@ -17,6 +17,7 @@ export async function request<T>(path: string, token: string | null, options: Re
     const body = await response.json().catch(() => null);
     throw new ApiError(response.status, body?.message ?? "Something went wrong. Please try again.");
   }
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
