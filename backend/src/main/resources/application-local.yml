@@ -1,0 +1,36 @@
+# ---------------------------------------------------------------------------
+# Local development profile — run with:
+#     mvn spring-boot:run -Dspring-boot.run.profiles=local
+#
+# Uses an in-memory H2 database (MySQL compatibility mode) so that no
+# external database is required for local development.
+# The JWT secret below is for local development ONLY — it is never used in
+# production or deployed environments.
+# ---------------------------------------------------------------------------
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:atlas_local;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+atlas:
+  jwt:
+    secret: "atlas-local-dev-only-jwt-secret-do-not-use-in-production-padding-64"
+    expiration-ms: 86400000
+
+# Override structured (JSON) logging to plain console output for readability
+logging:
+  structured:
+    format:
+      console: ~
+      file: ~
