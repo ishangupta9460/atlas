@@ -12,6 +12,7 @@ export default defineConfig({
       "/roadmaps": "http://localhost:8080",
       "/milestones": "http://localhost:8080",
       "/commitments": "http://localhost:8080",
+      "/categories": "http://localhost:8080",
     },
   },
 });

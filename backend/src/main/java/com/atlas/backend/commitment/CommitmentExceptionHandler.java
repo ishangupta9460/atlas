@@ -15,7 +15,8 @@ public class CommitmentExceptionHandler {
     ResponseEntity<Map<String,String>> domain(CommitmentException ex) {
         return ResponseEntity.status(ex.status()).body(Map.of("error_code",ex.code(),"message",ex.getMessage()));
     }
-    @ExceptionHandler({HttpMessageNotReadableException.class,MethodArgumentTypeMismatchException.class})
+    @ExceptionHandler({HttpMessageNotReadableException.class,MethodArgumentTypeMismatchException.class,
+            org.springframework.web.method.annotation.HandlerMethodValidationException.class})
     ResponseEntity<Map<String,String>> malformed(Exception ex) {
         return ResponseEntity.badRequest().body(Map.of("error_code","VALIDATION_ERROR","message","Malformed request or unsupported field"));
     }

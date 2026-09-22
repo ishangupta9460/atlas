@@ -79,6 +79,16 @@ textarea { resize: vertical; }
 details { margin-top: 1.2rem; }
 summary { cursor: pointer; }
 .actions, .badges { flex-wrap: wrap; }
+.category-swatch { display: inline-block; width: .75rem; height: .75rem; border-radius: 50%; margin-right: .5rem; border: 1px solid #647268; }
+input[type="color"] { width: 4rem; height: 3rem; padding: .3rem; }
+.dependency-panel { background: #edf1e7; border-radius: 10px; padding: 1.25rem; margin-top: 1rem; }
+.dependency-panel h4 { margin: 0 0 .5rem; }
+.dependency-list { list-style: none; padding: 0; margin: 1rem 0; }
+.dependency-list li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .75rem 0; border-bottom: 1px solid #cbd2c8; }
+.dependency-list li > div { min-width: 0; overflow-wrap: anywhere; }
+.dependency-list .badge { margin-left: .5rem; }
+.dependency-list button { flex-shrink: 0; }
+@media (max-width: 500px) { .dependency-list li { align-items: start; flex-direction: column; } }
 @media (max-width: 700px) {
   .auth-layout { grid-template-columns: 1fr; gap: 2rem; padding: 2rem 1.25rem; }
   .intro h1 { font-size: 3rem; margin: 1rem 0; }

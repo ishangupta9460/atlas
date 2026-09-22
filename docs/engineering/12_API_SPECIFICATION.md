@@ -124,6 +124,34 @@ manual edits do not implement the document import or AI interview pipelines belo
 
 ## 4. Commitments / Tasks
 
+### Task lookup for prerequisites (DOM-007 UI integration)
+
+`GET /commitments?q=&excludeId=&cursor=&limit=` returns the existing
+`{ commitments: CommitmentResponse[], nextCursor: number|null }` page shape.
+Only JWT-owned tasks are returned, across goals and all Work States. `q` is an optional
+trimmed, case-insensitive literal title substring (maximum 255 characters; `%` and `_`
+are not wildcards). Empty search includes untitled drafts. `excludeId` optionally omits
+one positive ID without accessing that entity. Pagination is newest-ID-first, with an
+exclusive positive cursor and limit 1–100 (default 20). Invalid queries return 400
+`VALIDATION_ERROR`; unauthenticated reads return 401. The endpoint emits no events.
+Search results are candidates only: adding an edge still requires DOM-007 ownership
+and cycle validation. No transitive graph, automatic scheduling, or cancellation is added.
+
+### Category setup and task defaults (MEM-004 / DOM-005 integration)
+
+Existing authenticated category routes are now used by category setup and task editing:
+POST/GET `/categories`, GET/PATCH/DELETE `/categories/{id}`. POST accepts `name`,
+`color`, required `defaultFlexibilityTier`, optional nullable `defaultImportance`;
+PATCH accepts those supplied fields. POST returns 201, reads/updates 200, DELETE 204.
+The list is ID-ascending and scoped to the JWT owner. Missing/foreign items return 404;
+deletion with Commitment or Recurring Intention references returns 409 `CATEGORY_IN_USE`.
+Category configuration writes do not change existing tasks or emit task events.
+
+Task creation can select a category and omit importance/flexibility to use its defaults,
+or provide explicit overrides. If no importance default exists, an explicit task choice
+is required. Task PATCH category changes preserve saved importance/flexibility; unlinking
+uses explicit `categoryId: null`. The UI does not introduce live default inheritance.
+
 ### Goal planning read (DOM-003 integration; DEC-0011)
 
 `GET /goals/{goalId}/commitments?cursor=&limit=` returns

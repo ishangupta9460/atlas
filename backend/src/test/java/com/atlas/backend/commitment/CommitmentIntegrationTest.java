@@ -152,6 +152,36 @@ class CommitmentIntegrationTest {
         assertEquals(count, events.count());
     }
 
+    @Test void taskSearchIsOwnedLiteralPaginatedAndReadOnly() throws Exception {
+        long first = commitment(",\"title\":\"Practice 100%\"");
+        long second = commitment(",\"title\":\"Practice chords\"");
+        long excluded = commitment(",\"title\":\"Practice scales\"");
+        long untitled = commitment("");
+        mvc.perform(post("/commitments").header("Authorization","Bearer "+foreign).contentType("application/json")
+                .content("{\"title\":\"Private practice\",\"importance\":\"high\",\"flexibilityTier\":\"flexible\"}"))
+                .andExpect(status().isCreated());
+        long count = events.count();
+        mvc.perform(get("/commitments").param("q","PRACTICE").param("excludeId",String.valueOf(excluded)).param("limit","1").header("Authorization","Bearer "+token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.commitments",hasSize(1)))
+                .andExpect(jsonPath("$.commitments[0].id",is((int)second))).andExpect(jsonPath("$.nextCursor",is((int)second)));
+        mvc.perform(get("/commitments").param("q","practice").param("cursor",String.valueOf(second)).header("Authorization","Bearer "+token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.commitments",hasSize(1)))
+                .andExpect(jsonPath("$.commitments[0].id",is((int)first))).andExpect(jsonPath("$.nextCursor",nullValue()));
+        mvc.perform(get("/commitments").param("q","%").header("Authorization","Bearer "+token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.commitments",hasSize(1))).andExpect(jsonPath("$.commitments[0].id",is((int)first)));
+        mvc.perform(get("/commitments").header("Authorization","Bearer "+token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.commitments",hasSize(4))).andExpect(jsonPath("$.commitments[0].id",is((int)untitled)));
+        assertEquals(count,events.count());
+    }
+
+    @Test void taskSearchRejectsUnauthenticatedAndMalformedQueries() throws Exception {
+        mvc.perform(get("/commitments")).andExpect(status().isUnauthorized());
+        for (String query : new String[]{"limit=0", "limit=101", "cursor=0", "excludeId=-1", "excludeId=abc", "cursor=abc"})
+            mvc.perform(get("/commitments?"+query).header("Authorization","Bearer "+token))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error_code",is("VALIDATION_ERROR")));
+        mvc.perform(get("/commitments").param("q","x".repeat(256)).header("Authorization","Bearer "+token)).andExpect(status().isBadRequest());
+    }
+
     @Test void goalPlanReadsRejectForeignMissingUnauthenticatedAndInvalidQueries() throws Exception {
         long goal = created(postJson("/goals", "{\"title\":\"Private\"}"));
         for (String suffix : new String[]{"roadmap", "commitments"}) {
