@@ -2,7 +2,8 @@
 
 CURRENT: Task categories and prerequisites on feature/ATLAS-BUILD, main checkout.
 BASE: 5b8e6c0, develop PR #20. Goal Planning is merged and verified per the user.
-STATUS: Batch implemented; focused checks passed; ready for Antigravity QA.
+STATUS: Implemented at 67f87e8 and pushed; focused checks passed; ready for Antigravity QA.
+PR: https://github.com/ishangupta9460/atlas/pull/21 (draft, targets develop; not merged).
 
 DONE:
 - Category setup/manage UI: create, edit defaults, remove with reference-safe errors.
@@ -32,9 +33,8 @@ LIMITS: No full backend regression or live browser/backend run; Antigravity owns
 No scheduling, task cancellation, or permanent-task execution cutover implemented.
 No open product questions or mutation contract changes introduced in this batch.
 
-NEXT: Publish/review the prepared batch PR to develop, then Antigravity full regression,
-live integration/browser QA and independent review; human verification before merge.
-PR body prepared in the local temporary atlas-task-organization-pr.md file.
+NEXT: Antigravity full regression, live integration/browser QA and independent review
+of PR #21; human verification before merge.
 
 ENVIRONMENT: npm/Vite and Git publishing require sandbox escalation. Never work on
 production data for these checks; backend verification used isolated H2 test databases.
