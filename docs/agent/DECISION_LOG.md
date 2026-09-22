@@ -56,6 +56,25 @@ spec.
 
 ---
 
+### DEC-0011 — Manual goal planning integration
+
+- DATE: 2026-09-22
+- TYPE: Implementation
+- STATUS: Approved (implementation authority)
+- CONTEXT/AUTHORITY: User requests coherent end-to-end batches in the main checkout,
+  authorizes ordinary missing API implementation, and assigns full QA to Antigravity.
+- DECISION: Expose existing Roadmap/Milestone and Commitment creation/editing in a
+  progressive goal planning UI. Add owned Goal-to-Roadmap lookup and paginated
+  Goal-to-Commitment read instead of relying on client-only IDs or unbounded lists.
+- WHY: Saved goals need a usable path to concrete work; existing entity models and
+  mutation services already own the behavior. No scheduling or AI behavior is invented.
+- IMPACT: `12` documents read extensions and existing structural routes; focused
+  ownership/read tests and UI interaction tests. No schema or mutation-contract change.
+- RELATED JIRA: DOM-002/SCRUM-24, DOM-003/SCRUM-25, UI-006/SCRUM-52 (contributes;
+  does not claim the full AI interview/onboarding flow).
+- WORKFLOW: `feature/ATLAS-BUILD` in the main checkout; compact `STATE.md` checkpoint
+  replaces per-story handoffs for this batch per the user's explicit instructions.
+
 ## Entry Format
 
 ```

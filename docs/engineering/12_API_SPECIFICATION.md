@@ -95,6 +95,26 @@ parameters return `400 VALIDATION_ERROR`; authentication remains required.
 
 ## 3. Roadmaps / Import
 
+### Direct goal planning (DOM-002/DOM-003 integration; DEC-0011)
+
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `/goals/{goalId}/roadmap` | Returns `{ "roadmap": RoadmapResponse|null }`; null means the owned Goal has no Roadmap yet |
+| POST | `/goals/{goalId}/roadmaps` | Existing structural creation; optional `source` defaults to `user_interview`; returns 201 or 409 `ROADMAP_ALREADY_EXISTS` |
+| GET | `/roadmaps/{id}` | Existing Roadmap with Milestones ordered by `order`, then ID |
+| POST | `/roadmaps/{roadmapId}/milestones` | Existing structural creation from `{ title, order }`; returns 201 |
+| GET | `/milestones/{id}` | Existing Milestone read |
+| PATCH | `/milestones/{id}` | Existing title/order update |
+
+All routes require JWT ownership of the complete Goal/Roadmap/Milestone chain; missing
+and foreign entities return 404. Roadmap responses contain `id`, `goalId`, `source`,
+`createdAt`, `milestones`; Milestone responses contain `id`, `roadmapId`, `title`, `order`.
+Roadmap source remains creation-only; existing `PATCH /roadmaps/{id}` returns 409
+`ROADMAP_IMMUTABLE`. Structural reads/writes have no Event Log side effects. These direct
+manual edits do not implement the document import or AI interview pipelines below.
+
+### Import pipeline
+
 | Method | Route | Purpose |
 |---|---|---|
 | POST | `/roadmaps/import` | Upload document/screenshot → returns interpretation proposal (`06` §1.2–1.3), not committed |
@@ -103,6 +123,17 @@ parameters return `400 VALIDATION_ERROR`; authentication remains required.
 | POST | `/roadmaps/import/{importId}/approve` | Commits approved subset → creates Roadmap/Milestone/Commitment/Resource entities, hands off to Scheduling Engine |
 
 ## 4. Commitments / Tasks
+
+### Goal planning read (DOM-003 integration; DEC-0011)
+
+`GET /goals/{goalId}/commitments?cursor=&limit=` returns
+`{ "commitments": [CommitmentResponse...], "nextCursor": number|null }`.
+JWT owner and Goal scope are both required. Includes direct and milestone-linked tasks
+in every Work State, newest ID first. Default limit 20, allowed 1–100; cursor is an
+exclusive positive Commitment ID. Invalid query values return 400 `VALIDATION_ERROR`;
+missing/foreign goals return 404 `COMMITMENT_NOT_FOUND`. Reads emit no events.
+This subsequent integration extends the original DOM-003 three-route increment below;
+all mutation, state-machine, deadline, and event contracts remain as specified there.
 
 ### Approved DOM-003 API (DEC-0009)
 

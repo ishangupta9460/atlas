@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Client, jsonBody, messageOf } from "./api";
+import GoalPlanScreen from "./GoalPlanScreen";
 
 type Goal = {
   id: number; title: string; description: string | null; targetDeadline: string | null;
@@ -19,6 +20,7 @@ export default function GoalsScreen({ client }: { client: Client }) {
   const [title, setTitle] = useState("");
   const [selected, setSelected] = useState<Goal | null>(null);
   const [retry, setRetry] = useState(0);
+  const [planningGoal, setPlanningGoal] = useState<Goal | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -51,6 +53,8 @@ export default function GoalsScreen({ client }: { client: Client }) {
     finally { setPending(false); }
   }
 
+  if (planningGoal) return <GoalPlanScreen key={planningGoal.id} goal={planningGoal} client={client} onBack={() => setPlanningGoal(null)} />;
+
   return <>
     <div className="page-heading"><p className="eyebrow">A DIRECTION, ONE STEP AT A TIME</p><h1>What do you want to achieve?</h1><p>Start small. You can shape the details as you go.</p></div>
     <form className="capture card" onSubmit={create}>
@@ -67,7 +71,7 @@ export default function GoalsScreen({ client }: { client: Client }) {
         {selected?.id === goal.id ? <GoalEditor key={goal.id} goal={goal} client={client} onCancel={() => setSelected(null)} onSaved={updated => { setGoals(previous => previous.map(item => item.id === updated.id ? updated : item)); setSelected(null); setNotice("Changes saved."); }} /> : <>
           <h3>{goal.title}</h3>{goal.description && <p>{goal.description}</p>}
           <p className="hint">{goal.targetDeadline ? `Target date · ${goal.targetDeadline}` : "No deadline set"}</p>
-          <button className="text-button" onClick={() => { setSelected(goal); setNotice(""); }}>Edit goal <span aria-hidden="true">↗</span></button>
+          <div className="actions"><button onClick={() => { setPlanningGoal(goal); setNotice(""); }}>Open plan</button><button className="text-button" onClick={() => { setSelected(goal); setNotice(""); }}>Edit goal <span aria-hidden="true">↗</span></button></div>
         </>}
       </article>)}</div>
       {cursor && <button className="load-more" disabled={pending} onClick={() => void loadMore()}>{pending ? "Loading…" : "Show more goals"}</button>}

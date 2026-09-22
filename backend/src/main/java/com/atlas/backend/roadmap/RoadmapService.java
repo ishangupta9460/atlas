@@ -35,6 +35,12 @@ public class RoadmapService {
     @Transactional(readOnly = true)
     public RoadmapResponse getRoadmap(Long userId, Long roadmapId) { return response(findOwnedRoadmap(userId, roadmapId)); }
 
+    @Transactional(readOnly = true)
+    public RoadmapResponse getForGoal(Long userId, Long goalId) {
+        findOwnedGoal(userId, goalId);
+        return roadmapRepository.findByGoalId(goalId).map(this::response).orElse(null);
+    }
+
     /** Source is immutable and the Roadmap entity owns no other mutable fields. */
     @Transactional(readOnly = true)
     public RoadmapResponse updateRoadmap(Long userId, Long roadmapId) {
