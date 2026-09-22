@@ -2,7 +2,10 @@
 
 CURRENT: Goal planning batch on `feature/ATLAS-BUILD`, main repository checkout.
 BASE: `2945715` (develop, PR #19 product entry). Older ATLAS_CURRENT_STATE.md is stale.
-STATUS: Implemented and focused verification passed; independent QA/review pending.
+STATUS: Implemented at `4b75e5b`; focused verification passed; independent QA pending.
+PUBLISH BLOCKER: Automatic approval review rejected git push to
+https://github.com/ishangupta9460/atlas.git as sensitive source/history egress requiring
+trusted explicit destination/payload authorization. No push or PR creation occurred.
 
 DONE:
 - Goal → optional roadmap/milestones → permanent Commitment planning UI.
@@ -33,8 +36,9 @@ LIMITS: No full backend suite or live browser/backend verification this batch.
 Scheduling/execution integration, AI interview, imports, cancellation remain later work.
 No new product questions; no schema or state-machine changes.
 
-NEXT: Antigravity full regression, live integration/browser checks, independent review;
-human verification before merge. This batch is ready for a draft PR targeting develop.
+NEXT: Obtain explicit authorization to push this batch to the origin above and create
+a draft PR to develop; then Antigravity full regression, live integration/browser checks,
+independent review, and human verification before merge.
 
 ENVIRONMENT: npm ci restored missing lockfile dependencies. Vite requires execution
 outside the sandbox (esbuild spawn EPERM inside); Git/gh also need sandbox escalation.
