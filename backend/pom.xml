@@ -107,4 +107,25 @@
         </plugins>
     </build>
 
+    <!-- Maven profiles for environment-specific dependency scoping -->
+    <profiles>
+        <profile>
+            <!-- Activate with: mvn spring-boot:run -Plocal
+                 Adds H2 as a runtime dependency so the local Spring profile
+                 can use an in-memory database without external MySQL. -->
+            <id>local</id>
+            <dependencies>
+                <dependency>
+                    <groupId>com.h2database</groupId>
+                    <artifactId>h2</artifactId>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
+            <properties>
+                <!-- Automatically activate the Spring 'local' profile -->
+                <spring-boot.run.profiles>local</spring-boot.run.profiles>
+            </properties>
+        </profile>
+    </profiles>
+
 </project>
