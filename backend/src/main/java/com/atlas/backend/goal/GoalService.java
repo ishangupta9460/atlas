@@ -32,6 +32,17 @@ public class GoalService {
     @Transactional(readOnly = true)
     public GoalResponse get(Long userId, Long goalId) { return GoalResponse.from(findOwnedGoal(userId, goalId)); }
 
+    public record GoalPage(java.util.List<GoalResponse> goals, Long nextCursor) {}
+
+    @Transactional(readOnly = true)
+    public GoalPage list(Long userId, Long cursor, int limit) {
+        var rows = goalRepository.findByUserIdAndIdLessThanOrderByIdDesc(userId,
+                cursor == null ? Long.MAX_VALUE : cursor,
+                org.springframework.data.domain.PageRequest.of(0, limit + 1));
+        var goals = rows.stream().limit(limit).map(GoalResponse::from).toList();
+        return new GoalPage(goals, rows.size() > limit ? goals.get(goals.size() - 1).id() : null);
+    }
+
     @Transactional
     public GoalResponse update(Long userId, Long goalId, UpdateGoalRequest request) {
         Goal goal = findOwnedGoal(userId, goalId);

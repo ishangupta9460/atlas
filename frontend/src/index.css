@@ -1,1 +1,77 @@
 @import "tailwindcss";
+
+:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #263b34; background: #f5f4ee; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+button, input { font: inherit; }
+button { cursor: pointer; border: 1px solid #cbd2c8; border-radius: 8px; padding: .65rem 1rem; background: transparent; color: inherit; font-weight: 600; }
+button:hover:not(:disabled) { background: #e7ebe2; }
+button:disabled { opacity: .5; cursor: default; }
+button.primary { color: white; background: #285c45; border-color: #285c45; }
+button.primary:hover:not(:disabled) { background: #1c4935; }
+button.text-button { border: 0; padding: .6rem 0; }
+a { color: inherit; }
+input { display: block; width: 100%; background: #fff; border: 1px solid #b9c5ba; border-radius: 8px; padding: .8rem; color: #263b34; min-width: 0; }
+:focus-visible { outline: 3px solid #b77836; outline-offset: 3px; }
+label { display: block; font-size: .9rem; font-weight: 600; margin: 1rem 0 .45rem; }
+h1, h2, h3, p { margin: 0; }
+h1 { font-family: Georgia, serif; font-size: clamp(2rem, 4vw, 3.1rem); line-height: 1.15; font-weight: 400; letter-spacing: -.035em; }
+h2 { font-size: 1.25rem; font-weight: 650; }
+h3 { font-size: 1.15rem; font-weight: 600; overflow-wrap: anywhere; }
+p { line-height: 1.65; }
+.eyebrow { font-size: .7rem; letter-spacing: .16em; font-weight: 700; color: #61735f; }
+.hint { color: #647268; font-size: .85rem; }
+.card { background: #fffef9; border: 1px solid #dce0d4; border-radius: 14px; padding: 1.5rem; }
+.auth-layout { min-height: 100vh; display: grid; grid-template-columns: 1.1fr 1fr; gap: 5rem; align-items: center; max-width: 1150px; margin: auto; padding: 3rem; }
+.intro h1 { font-size: clamp(3rem, 5vw, 4.8rem); margin: 1.8rem 0; }
+.intro > p:last-child { color: #647268; }
+.auth-card h2 { margin: 1rem 0; }
+.auth-card form > button { width: 100%; margin: 1.5rem 0 .6rem; }
+.auth-card > .text-button { font-size: .85rem; }
+.app-shell { max-width: 1440px; margin: auto; }
+.app-header { display: flex; align-items: center; justify-content: space-between; padding: 1.2rem 3rem; border-bottom: 1px solid #dce0d4; gap: 1rem; }
+.brand { text-decoration: none; font-family: Georgia, serif; font-size: 2rem; letter-spacing: -.07em; }
+.brand span { font-family: system-ui, sans-serif; letter-spacing: .05em; font-size: .7rem; margin-left: 1rem; color: #647268; }
+.account { display: flex; align-items: center; gap: 1.5rem; font-size: .8rem; }
+.account span { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+nav { display: flex; gap: .5rem; padding: 1rem 3rem; }
+nav button { border-color: transparent; color: #647268; }
+nav button[aria-current="page"] { background: #e2e8db; color: #244f3b; }
+.workspace { max-width: 1020px; padding: 2rem 2rem 5rem; margin: auto; }
+.page-heading { margin-bottom: 2rem; }
+.page-heading h1 { margin: .9rem 0; }
+.page-heading > p:last-child { color: #647268; }
+.capture label { margin-top: 0; }
+.input-row { display: flex; gap: .75rem; }
+.input-row button { white-space: nowrap; }
+.section-heading { display: flex; justify-content: space-between; align-items: center; margin: 2.5rem 0 1rem; gap: 1rem; }
+.goal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+.goal-card h3 { margin: 1.3rem 0 .6rem; }
+.goal-card > .text-button { margin-top: 1rem; }
+.badges { display: flex; gap: .5rem; }
+.badge { background: #edf1e7; color: #496447; border-radius: 5px; padding: .25rem .55rem; font-size: .7rem; display: inline-block; text-transform: capitalize; }
+.badge.risk { background: #fae5cf; color: #805323; }
+.actions { display: flex; gap: .5rem; margin-top: 1rem; }
+.empty-state { padding: 3.5rem 1.5rem; text-align: center; border: 1px dashed #cbd2c8; border-radius: 14px; }
+.empty-state p { margin-top: .65rem; color: #647268; }
+.empty-mark { display: inline-block; font-size: 2rem; color: #64825e; margin-bottom: 1rem; }
+.error { background: #ffede6; color: #8b3824; border-radius: 8px; padding: .85rem; margin: 1rem 0; }
+.notice { color: #315f40; margin: 1rem 0; }
+.load-more { margin-top: 1.5rem; }
+.task-list { list-style: none; padding: 0; display: grid; gap: .75rem; }
+.task-row { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+.task-row h3 { margin-top: .7rem; }
+.loading-page { padding: 4rem; text-align: center; }
+.loading-page button { margin: 1rem .5rem; }
+@media (max-width: 700px) {
+  .auth-layout { grid-template-columns: 1fr; gap: 2rem; padding: 2rem 1.25rem; }
+  .intro h1 { font-size: 3rem; margin: 1rem 0; }
+  .app-header { padding: 1rem 1.25rem; }
+  .brand span, .account span { display: none; }
+  nav { padding: .8rem 1.25rem; }
+  .workspace { padding: 1.5rem 1.25rem 3rem; }
+  .goal-grid { grid-template-columns: 1fr; }
+  .section-heading > .hint { display: none; }
+  .input-row { flex-direction: column; }
+  .card { padding: 1.25rem; }
+}

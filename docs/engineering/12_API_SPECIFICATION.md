@@ -80,11 +80,18 @@ All four routes require `Authorization: Bearer <token>` and derive the user sole
 | Method | Route | Purpose |
 |---|---|---|
 | POST | `/goals` | Create (from interview flow or direct) |
+| GET | `/goals?cursor=&limit=` | List the caller's goals, newest-first (default limit 20; maximum 100) |
 | GET | `/goals/{id}` | Fetch, incl. current Planning State/Lifecycle |
 | PATCH | `/goals/{id}` | Update (title, deadline) — not state transitions |
 | POST | `/goals/{id}/pause` | Explicit user action → `02` §2.2 Paused transition |
 | POST | `/goals/{id}/abandon` | Explicit user action → `02` §2.1 Abandoned transition |
 | POST | `/goals/{id}/risk-response` | User response to an At-Risk prompt (`05` §5 options) |
+
+`GET /goals` returns `{ "goals": [...], "nextCursor": number|null }`. `cursor` is an
+exclusive, positive goal ID; `limit` must be an integer from 1 through 100. It returns all
+owned lifecycle and planning states so people can retain context for completed, paused, or
+abandoned goals. The endpoint has no Event Log side effect. Missing or malformed pagination
+parameters return `400 VALIDATION_ERROR`; authentication remains required.
 
 ## 3. Roadmaps / Import
 

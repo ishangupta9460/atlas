@@ -45,6 +45,50 @@ class GoalIntegrationTest {
     @AfterEach void tearDown() { cleanDatabase(); }
 
     @Test
+    void listIsOwnerScopedPaginatedAndReadOnly() throws Exception {
+        String alice = registerAndLogin("list-alice@example.com");
+        String bob = registerAndLogin("list-bob@example.com");
+        long first = createGoal(alice, "First");
+        long foreign = createGoal(bob, "Private");
+        long second = createGoal(alice, "Second");
+        long latest = createGoal(alice, "Latest");
+        goalService.abandon(ownerId(alice), second);
+        var before = eventsFor(second).size();
+
+        mockMvc.perform(get("/goals").param("limit", "2").header("Authorization", "Bearer " + alice))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.goals.length()", is(2)))
+                .andExpect(jsonPath("$.goals[0].id", is((int) latest)))
+                .andExpect(jsonPath("$.goals[1].id", is((int) second)))
+                .andExpect(jsonPath("$.goals[1].lifecycleState", is("abandoned")))
+                .andExpect(jsonPath("$.nextCursor", is((int) second)));
+        mockMvc.perform(get("/goals").param("limit", "2").param("cursor", Long.toString(second))
+                        .header("Authorization", "Bearer " + alice))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.goals.length()", is(1)))
+                .andExpect(jsonPath("$.goals[0].id", is((int) first)))
+                .andExpect(jsonPath("$.nextCursor").value(org.hamcrest.Matchers.nullValue()));
+        mockMvc.perform(get("/goals").header("Authorization", "Bearer " + bob))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.goals.length()", is(1)))
+                .andExpect(jsonPath("$.goals[0].id", is((int) foreign)));
+        mockMvc.perform(get("/goals").param("cursor", "1").header("Authorization", "Bearer " + alice))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.goals.length()", is(0)));
+        assertEquals(before, eventsFor(second).size());
+    }
+
+    @Test
+    void listRejectsInvalidPaginationAndRequiresAuthentication() throws Exception {
+        String token = registerAndLogin("query-owner@example.com");
+        mockMvc.perform(get("/goals")).andExpect(status().isUnauthorized());
+        for (String limit : java.util.List.of("0", "-1", "101", "oops")) {
+            mockMvc.perform(get("/goals").param("limit", limit).header("Authorization", "Bearer " + token))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error_code", is("VALIDATION_ERROR")));
+        }
+        for (String cursor : java.util.List.of("0", "-1", "oops", "9223372036854775808")) {
+            mockMvc.perform(get("/goals").param("cursor", cursor).header("Authorization", "Bearer " + token))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error_code", is("VALIDATION_ERROR")));
+        }
+    }
+
+    @Test
     void createFetchAndPatchFollowContractWithoutChangingStates() throws Exception {
         String token = registerAndLogin("goal-owner@example.com");
         long id = createGoal(token, "Learn Spring");
