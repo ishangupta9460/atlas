@@ -13,6 +13,11 @@ public class RoadmapController {
     private final RoadmapService roadmapService;
     public RoadmapController(RoadmapService roadmapService) { this.roadmapService = roadmapService; }
 
+    @GetMapping("/goals/{goalId}/roadmap")
+    public java.util.Map<String, RoadmapResponse> getForGoal(@AuthenticationPrincipal User user, @PathVariable Long goalId) {
+        return java.util.Collections.singletonMap("roadmap", roadmapService.getForGoal(user.getId(), goalId));
+    }
+
     @PostMapping("/goals/{goalId}/roadmaps")
     public ResponseEntity<RoadmapResponse> createRoadmap(@AuthenticationPrincipal User user, @PathVariable Long goalId,
                                                            @Valid @RequestBody CreateRoadmapRequest request) {

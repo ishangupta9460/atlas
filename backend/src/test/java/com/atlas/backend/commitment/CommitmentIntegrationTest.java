@@ -125,4 +125,44 @@ class CommitmentIntegrationTest {
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM commitments",Integer.class));
         assertEquals(3,jdbc.queryForObject("SELECT COUNT(*) FROM events WHERE task_id=?",Integer.class,legacy));
     }
+
+    @Test void goalPlanReadsPersistedMilestonesAndPaginatesDirectAndMilestoneTasksWithoutEvents() throws Exception {
+        long goal = created(postJson("/goals", "{\"title\":\"Learn piano\"}"));
+        mvc.perform(get("/goals/"+goal+"/roadmap").header("Authorization","Bearer "+token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.roadmap",nullValue()));
+        long roadmap = created(postJson("/goals/"+goal+"/roadmaps", "{}"));
+        long milestone = created(postJson("/roadmaps/"+roadmap+"/milestones", "{\"title\":\"First song\",\"order\":1}"));
+        long direct = commitment(",\"goalId\":"+goal+",\"title\":\"Choose a song\"");
+        long grouped = commitment(",\"milestoneId\":"+milestone+",\"title\":\"Practice\",\"completionCriterion\":\"Play one verse\"");
+        commitment(""); // A standalone task must not leak into this goal's plan.
+        long count = events.count();
+        mvc.perform(get("/goals/"+goal+"/roadmap").header("Authorization","Bearer "+token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.roadmap.id",is((int)roadmap)))
+                .andExpect(jsonPath("$.roadmap.milestones[0].id",is((int)milestone)));
+        mvc.perform(get("/goals/"+goal+"/commitments?limit=1").header("Authorization","Bearer "+token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.commitments",hasSize(1)))
+                .andExpect(jsonPath("$.commitments[0].id",is((int)grouped)))
+                .andExpect(jsonPath("$.commitments[0].workState",is("ready")))
+                .andExpect(jsonPath("$.nextCursor",is((int)grouped)));
+        mvc.perform(get("/goals/"+goal+"/commitments?limit=1&cursor="+grouped).header("Authorization","Bearer "+token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.commitments",hasSize(1)))
+                .andExpect(jsonPath("$.commitments[0].id",is((int)direct)))
+                .andExpect(jsonPath("$.commitments[0].workState",is("draft")))
+                .andExpect(jsonPath("$.nextCursor",nullValue()));
+        assertEquals(count, events.count());
+    }
+
+    @Test void goalPlanReadsRejectForeignMissingUnauthenticatedAndInvalidQueries() throws Exception {
+        long goal = created(postJson("/goals", "{\"title\":\"Private\"}"));
+        for (String suffix : new String[]{"roadmap", "commitments"}) {
+            mvc.perform(get("/goals/"+goal+"/"+suffix)).andExpect(status().isUnauthorized());
+            mvc.perform(get("/goals/"+goal+"/"+suffix).header("Authorization","Bearer "+foreign)).andExpect(status().isNotFound());
+            mvc.perform(get("/goals/999999/"+suffix).header("Authorization","Bearer "+token)).andExpect(status().isNotFound());
+        }
+        mvc.perform(get("/goals/"+goal+"/commitments").header("Authorization","Bearer "+token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.commitments",hasSize(0))).andExpect(jsonPath("$.nextCursor",nullValue()));
+        for (String query : new String[]{"limit=0", "limit=101", "limit=abc", "cursor=0", "cursor=-1", "cursor=abc"})
+            mvc.perform(get("/goals/"+goal+"/commitments?"+query).header("Authorization","Bearer "+token))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error_code",is("VALIDATION_ERROR")));
+    }
 }

@@ -9,6 +9,9 @@ export default defineConfig({
     proxy: {
       "/api": "http://localhost:8080",
       "/goals": "http://localhost:8080",
+      "/roadmaps": "http://localhost:8080",
+      "/milestones": "http://localhost:8080",
+      "/commitments": "http://localhost:8080",
     },
   },
 });

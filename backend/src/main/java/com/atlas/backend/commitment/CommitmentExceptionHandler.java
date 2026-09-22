@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
-@RestControllerAdvice(assignableTypes=CommitmentController.class)
+@RestControllerAdvice(assignableTypes={CommitmentController.class, GoalCommitmentController.class})
 public class CommitmentExceptionHandler {
     @ExceptionHandler(CommitmentException.class)
     ResponseEntity<Map<String,String>> domain(CommitmentException ex) {

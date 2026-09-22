@@ -63,6 +63,22 @@ nav button[aria-current="page"] { background: #e2e8db; color: #244f3b; }
 .task-row h3 { margin-top: .7rem; }
 .loading-page { padding: 4rem; text-align: center; }
 .loading-page button { margin: 1rem .5rem; }
+.plan-section { margin: 2rem 0; padding-top: 1.5rem; border-top: 1px solid #dce0d4; }
+.plan-section .section-heading { margin: 0 0 .75rem; }
+.milestone-list { padding-left: 1.5rem; }
+.milestone-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.milestone-row span { overflow-wrap: anywhere; min-width: 0; }
+.plan-task-list { list-style: none; padding: 0; }
+.plan-task { border-bottom: 1px solid #dce0d4; padding: 1.5rem 0; }
+.plan-task h3 { margin: .75rem 0 .4rem; }
+.plan-task p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.plan-empty { padding: 2rem 0; color: #647268; }
+.commitment-editor { margin-top: 1.5rem; }
+textarea, select { display: block; width: 100%; font: inherit; color: inherit; background: #fff; border: 1px solid #b9c5ba; border-radius: 8px; padding: .8rem; }
+textarea { resize: vertical; }
+details { margin-top: 1.2rem; }
+summary { cursor: pointer; }
+.actions, .badges { flex-wrap: wrap; }
 @media (max-width: 700px) {
   .auth-layout { grid-template-columns: 1fr; gap: 2rem; padding: 2rem 1.25rem; }
   .intro h1 { font-size: 3rem; margin: 1rem 0; }
