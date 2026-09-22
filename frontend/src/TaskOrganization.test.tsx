@@ -169,3 +169,96 @@ it("preserves failed prerequisite removal and clears private content on session 
   expect(screen.queryByText(task.title)).not.toBeInTheDocument();
   expect(sessionStorage.getItem("atlas.session")).toBeNull();
 });
+
+it("runs the complete task category, override, prerequisite search, reload, removal, and cycle rejection flow", async () => {
+  let commitmentsList: (typeof task | { id: number; title: string; completionCriterion: string | null; goalId: number; milestoneId: null; categoryId: number; importance: string; flexibilityTier: string; workState: string })[] = [task];
+  let dependenciesList: { blockingCommitmentId: number; blockedCommitmentId: number }[] = [];
+
+  routes["GET /goals/1/commitments"] = () => response({ commitments: commitmentsList, nextCursor: null });
+  routes["POST /commitments"] = body => {
+    const createdTask = {
+      id: 99,
+      title: body.title as string,
+      completionCriterion: null,
+      goalId: 1,
+      milestoneId: null,
+      categoryId: body.categoryId as number,
+      importance: (body.importance as string) || "high",
+      flexibilityTier: (body.flexibilityTier as string) || "protected",
+      workState: "draft",
+    };
+    commitmentsList = [createdTask, ...commitmentsList];
+    return response(createdTask, 201);
+  };
+  routes["GET /commitments/99/dependencies"] = () => response(dependenciesList.filter(d => d.blockedCommitmentId === 99));
+  routes["GET /commitments/8"] = () => response(prerequisite);
+  routes["GET /commitments?q=&excludeId=99"] = () => response({ commitments: [prerequisite], nextCursor: null });
+  routes["POST /commitments/99/dependencies"] = body => {
+    const blockerId = (body as any).blockingCommitmentId;
+    if (blockerId === 100) {
+      return response({ message: "This dependency would create a cycle" }, 409);
+    }
+    const edge = { blockingCommitmentId: blockerId, blockedCommitmentId: 99 };
+    dependenciesList.push(edge);
+    return response(edge, 201);
+  };
+  routes["DELETE /commitments/99/dependencies/8"] = () => {
+    dependenciesList = dependenciesList.filter(d => !(d.blockedCommitmentId === 99 && d.blockingCommitmentId === 8));
+    return response(null, 204);
+  };
+
+  const user = await plan();
+
+  // 1. Create task
+  await user.click(screen.getByRole("button", { name: "Add a task" }));
+  await user.type(screen.getByLabelText("What will you do?"), "Master Bach fugue");
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+
+  // 2. Choose category & 3. Override category
+  await user.click(screen.getByText("Category and defaults"));
+  await user.selectOptions(screen.getByLabelText("Category"), "7");
+  // Default is "high" and "protected", override importance to "critical"
+  await user.selectOptions(screen.getByLabelText("How important is this task?"), "critical");
+
+  // Save task
+  await user.click(screen.getByRole("button", { name: "Save draft" }));
+  await screen.findByText("Master Bach fugue");
+
+  // 4. Add prerequisite & search another goal's task
+  await user.click(screen.getByRole("button", { name: "Prerequisites for Master Bach fugue" }));
+  await screen.findByText("Find a prerequisite");
+  // The prerequisite belongs to goalId: 2 ("Learn chords")
+  await screen.findByText("Learn chords");
+  await user.click(screen.getByRole("button", { name: "Add prerequisite Learn chords" }));
+  await screen.findByText("Prerequisite added.");
+  expect(screen.getByRole("button", { name: "Remove prerequisite Learn chords" })).toBeInTheDocument();
+
+  // 5. Reload / Reopen plan (toggle prerequisites panel to simulate closing and reopening)
+  await user.click(screen.getByRole("button", { name: "Prerequisites for Master Bach fugue" }));
+  expect(screen.queryByText("Find a prerequisite")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Prerequisites for Master Bach fugue" }));
+  await screen.findByRole("button", { name: "Remove prerequisite Learn chords" });
+
+  // 6. Remove prerequisite
+  await user.click(screen.getByRole("button", { name: "Remove prerequisite Learn chords" }));
+  await screen.findByText("Prerequisite removed. Both tasks are still saved.");
+  expect(screen.queryByRole("button", { name: "Remove prerequisite Learn chords" })).not.toBeInTheDocument();
+  expect(dependenciesList).toHaveLength(0);
+
+  // 7. Attempt invalid cycle
+  const cycleCandidate = { ...task, id: 100, title: "Cycle Causer", goalId: 1 };
+  routes["GET /commitments?q=&excludeId=99"] = () => response({ commitments: [cycleCandidate], nextCursor: null });
+  // Trigger search refresh
+  await user.click(screen.getByRole("button", { name: "Search tasks" }));
+  await screen.findByText("Cycle Causer");
+  await user.click(screen.getByRole("button", { name: "Add prerequisite Cycle Causer" }));
+
+  // 8. Verify clear error
+  expect(await screen.findByRole("alert")).toHaveTextContent("would create a cycle");
+
+  // 9. Verify existing state remains intact
+  expect(screen.getByText("Master Bach fugue")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Remove prerequisite Cycle Causer" })).not.toBeInTheDocument();
+  expect(dependenciesList).toHaveLength(0);
+});
+
