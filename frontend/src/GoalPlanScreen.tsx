@@ -39,6 +39,7 @@ export default function GoalPlanScreen({ goal, client, onBack, onWork }: {
   const [milestoneTitle,   setMilestoneTitle]   = useState("");
   const [editor,           setEditor]           = useState<Commitment | "new" | null>(null);
   const [editingMilestone, setEditingMilestone] = useState<number | null>(null);
+  const [savedTask, setSavedTask] = useState<Commitment | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -132,6 +133,7 @@ export default function GoalPlanScreen({ goal, client, onBack, onWork }: {
             </div>
           )}
           {notice && <p role="status" className="notice">{notice}</p>}
+          {savedTask && onWork && <div className="saved-task-next"><p>{savedTask.title} is saved. {savedTask.workState === "draft" ? "Define done when you’re ready, then choose a work window." : "Choose a work window to bring this task into your day."}</p><button className="primary" onClick={() => onWork(savedTask.id)}>{savedTask.workState === "draft" ? "Make ready →" : "Schedule this →"}</button></div>}
 
           {loaded && (
             <>
@@ -231,6 +233,7 @@ export default function GoalPlanScreen({ goal, client, onBack, onWork }: {
                           : [saved, ...previous]
                       );
                       setEditor(null);
+                      setSavedTask(saved.workState === "draft" || saved.workState === "ready" ? saved : null);
                       setNotice(saved.workState === "draft" ? "Draft saved. You can define done when you're ready." : "Task saved.");
                     }}
                   />
@@ -370,10 +373,25 @@ function CommitmentEditor({ task, goalId, milestones, categories, onCategoryCrea
   const hasImportance  = !!importance  || (!task && !!category?.defaultImportance);
   const hasFlexibility = !!flexibility || (!task && !!category?.defaultFlexibilityTier);
 
+  async function capture() {
+    if (pending || !title.trim()) return;
+    setPending(true); setError("");
+    try {
+      onSaved(await client<Commitment>("/commitments", { method: "POST", ...jsonBody({
+        title: title.trim(), completionCriterion: criterion.trim() || null, goalId,
+        ...(importance ? { importance } : category?.defaultImportance ? {} : { importance: "medium" }),
+        ...(flexibility ? { flexibilityTier: flexibility } : category?.defaultFlexibilityTier ? {} : { flexibilityTier: "flexible" }),
+        ...(milestone ? { milestoneId: Number(milestone) } : {}),
+        ...(categoryChanged ? { categoryId: categoryId ? Number(categoryId) : null } : {}),
+      }) }));
+    } catch (failure) { setError(messageOf(failure)); }
+    finally { setPending(false); }
+  }
+
   async function save(event: FormEvent) {
     event.preventDefault();
     if (pending || !title.trim() || (criterionRequired && !criterion.trim())) return;
-    if (step === 0) { setStep(1); return; }
+    if (step === 0) { if (!task) await capture(); else setStep(1); return; }
     if (!hasImportance || !hasFlexibility) return;
     setPending(true); setError("");
     try {
@@ -427,7 +445,7 @@ function CommitmentEditor({ task, goalId, milestones, categories, onCategoryCrea
             disabled={pending}
             autoFocus
           />
-          <label htmlFor="criterion">
+          <details className="capture-definition" open={task !== null}><summary>{task ? "What done looks like" : "Define done now (optional)"}</summary><label htmlFor="criterion">
             What will done look like?{" "}
             <span className="hint">
               {criterionRequired ? "Required for a ready task" : "Leave empty to save a draft"}
@@ -441,6 +459,8 @@ function CommitmentEditor({ task, goalId, milestones, categories, onCategoryCrea
             disabled={pending}
             rows={3}
           />
+          </details>
+          {!task && <p className="hint">Capture first. Starts with medium importance and flexible placement; you can refine the details later.</p>}
         </>
       ) : (
         <>
@@ -524,11 +544,14 @@ function CommitmentEditor({ task, goalId, milestones, categories, onCategoryCrea
       {error && <p role="alert" className="error">{error}</p>}
 
       <div className="actions">
+        {!task && step === 0 && <button className="primary" type="submit" disabled={pending || !title.trim()}>{pending ? "Saving…" : "Capture task"}</button>}
         {step === 1 && (
           <button type="button" disabled={pending} onClick={() => setStep(0)}>Back</button>
         )}
         <button
-          className="primary"
+          className={!task && step === 0 ? "text-button" : "primary"}
+          type={!task && step === 0 ? "button" : "submit"}
+          onClick={!task && step === 0 ? () => setStep(1) : undefined}
           disabled={pending || !title.trim() || (step === 1 && (!hasImportance || !hasFlexibility))}
         >
           {pending ? "Saving…" : step === 0 ? "Continue" : criterion.trim() ? "Save task" : "Save draft"}

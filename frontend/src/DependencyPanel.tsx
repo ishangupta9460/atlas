@@ -5,8 +5,9 @@ type Task = { id: number; title: string | null; workState: string; completionCri
 type Edge = { blockingCommitmentId: number; blockedCommitmentId: number };
 type Page = { commitments: Task[]; nextCursor: number | null };
 
-export default function DependencyPanel({ task, client }: {
+export default function DependencyPanel({ task, client, onChanged }: {
   task: { id: number; title: string | null }; client: Client;
+  onChanged?: () => void;
 }) {
   const [blockers,      setBlockers]      = useState<Task[]>([]);
   const [loading,       setLoading]       = useState(true);
@@ -68,6 +69,7 @@ export default function DependencyPanel({ task, client }: {
           : [...items, blocker].sort((a, b) => a.id - b.id)
       );
       setNotice("Prerequisite added.");
+      onChanged?.();
     } catch (failure) { setError(messageOf(failure)); }
     finally { setPending(false); }
   }
@@ -79,6 +81,7 @@ export default function DependencyPanel({ task, client }: {
       await client<void>(`/commitments/${task.id}/dependencies/${blocker.id}`, { method: "DELETE" });
       setBlockers(items => items.filter(item => item.id !== blocker.id));
       setNotice("Prerequisite removed. Both tasks are still saved.");
+      onChanged?.();
     } catch (failure) { setError(messageOf(failure)); }
     finally { setPending(false); }
   }
