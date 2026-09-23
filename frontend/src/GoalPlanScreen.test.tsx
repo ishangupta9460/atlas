@@ -10,11 +10,13 @@ const task = { id: 5, title: "Practice a verse", completionCriterion: null, goal
 const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 function enqueue(...bodies: unknown[]) { bodies.forEach(body => fetchMock.mockResolvedValueOnce(reply(body))); }
 beforeEach(() => {
-  sessionStorage.clear(); sessionStorage.setItem("atlas.session", "token"); fetchMock.mockReset(); vi.stubGlobal("fetch", fetchMock);
+  sessionStorage.clear(); sessionStorage.setItem("atlas.session", "token"); fetchMock.mockReset();
+  vi.stubGlobal("fetch", (path: string, options: RequestInit) => path === "/execution" ? Promise.resolve(reply({ serverTime: new Date().toISOString(), tasks: [], blocks: [], fixed: [], history: [] })) : fetchMock(path, options));
   enqueue({ id: 1, email: "person@example.com" }, { goals: [goal], nextCursor: null });
 });
 async function openPlan() {
   const user = userEvent.setup(); render(<App />);
+  await user.click(await screen.findByRole("button", { name: "Goals" }));
   await user.click(await screen.findByRole("button", { name: "Open plan" }));
   await screen.findByRole("heading", { name: "Actionable tasks" });
   return user;
@@ -95,6 +97,7 @@ it("keeps failed task edits and prevents clearing the defining fields of ready w
 it("shows a retry after a failed plan read without presenting an empty editable plan", async () => {
   fetchMock.mockResolvedValueOnce(reply({ message: "Plan unavailable" }, 503)); enqueue({ commitments: [], nextCursor: null }, []);
   const user = userEvent.setup(); render(<App />);
+  await user.click(await screen.findByRole("button", { name: "Goals" }));
   await user.click(await screen.findByRole("button", { name: "Open plan" }));
   await screen.findByRole("alert");
   expect(screen.queryByRole("button", { name: "Add a task" })).not.toBeInTheDocument();

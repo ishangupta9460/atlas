@@ -22,8 +22,8 @@ function commitmentBadgeClass(state: string): string {
   return "badge";
 }
 
-export default function GoalPlanScreen({ goal, client, onBack }: {
-  goal: { id: number; title: string }; client: Client; onBack: () => void;
+export default function GoalPlanScreen({ goal, client, onBack, onWork }: {
+  goal: { id: number; title: string }; client: Client; onBack: () => void; onWork?: (id: number) => void;
 }) {
   const [roadmap,          setRoadmap]          = useState<Roadmap | null>(null);
   const [tasks,            setTasks]            = useState<Commitment[]>([]);
@@ -263,6 +263,7 @@ export default function GoalPlanScreen({ goal, client, onBack }: {
                         {roadmap?.milestones.find(item => item.id === task.milestoneId)?.title ?? "Directly supports this goal"}
                       </p>
                       <div className="actions">
+                        {onWork && (task.workState === "ready" || task.workState === "in_progress") && <button className="primary" onClick={() => onWork(task.id)}>Work on this →</button>}
                         <button
                           className="text-button"
                           disabled={pending || editor !== null || editingMilestone !== null}

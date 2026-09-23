@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import AuthScreen, { User } from "./AuthScreen";
 import { ApiError, Client, messageOf, request } from "./api";
 import GoalsScreen from "./GoalsScreen";
-import TodayScreen from "./TodayScreen";
+import ExecutionWorkspace from "./ExecutionWorkspace";
+import { ExecutionView } from "./execution";
 import CategoriesScreen from "./CategoriesScreen";
 
 const SESSION_KEY = "atlas.session";
@@ -11,7 +12,7 @@ function persistToken(token: string | null) {
   try { if (token) sessionStorage.setItem(SESSION_KEY, token); else sessionStorage.removeItem(SESSION_KEY); } catch { /* In-memory sign-in still works when storage is unavailable. */ }
 }
 
-type Screen = "today" | "goals" | "categories";
+type Screen = ExecutionView | "goals" | "categories";
 
 export default function App() {
   const [token, setToken] = useState(savedToken);
@@ -20,13 +21,15 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [verificationError, setVerificationError] = useState("");
   const [retry, setRetry] = useState(0);
-  const [screen, setScreen] = useState<Screen>("goals");
+  const [screen, setScreen] = useState<Screen>("today");
+  const [taskId, setTaskId] = useState<number | null>(null);
+  const [goalId, setGoalId] = useState<number | null>(null);
   const activeToken = useRef(token);
   activeToken.current = token;
 
   const signOut = useCallback((reason = "") => {
     activeToken.current = null;
-    persistToken(null); setToken(null); setUser(null); setChecking(false); setNotice(reason); setScreen("goals");
+    persistToken(null); setToken(null); setUser(null); setChecking(false); setNotice(reason); setScreen("today"); setTaskId(null); setGoalId(null);
   }, []);
 
   useEffect(() => {
@@ -71,9 +74,11 @@ export default function App() {
   if (!user) return <AuthScreen notice={notice} onSignIn={(nextToken, profile) => { persistToken(nextToken); setToken(nextToken); setUser(profile); setNotice(""); }} />;
 
   const nav: { id: Screen; label: string }[] = [
-    { id: "today",      label: "Tasks" },
+    { id: "today",      label: "Today" },
+    { id: "focus",      label: "Focus" },
     { id: "goals",      label: "Goals" },
-    { id: "categories", label: "Categories" },
+    { id: "schedule", label: "Schedule" },
+    { id: "progress", label: "Progress" },
   ];
 
   return (
@@ -90,7 +95,7 @@ export default function App() {
             <button
               key={id}
               aria-current={screen === id ? "page" : undefined}
-              onClick={() => setScreen(id)}
+              onClick={() => { setScreen(id); setTaskId(null); setGoalId(null); }}
             >
               {label}
             </button>
@@ -105,9 +110,9 @@ export default function App() {
       </header>
 
       <main className="workspace" key={user.id}>
-        {screen === "goals"      ? <GoalsScreen client={client} /> :
+        {screen === "goals"      ? <><div className="workspace-tools"><button className="text-button" onClick={() => setScreen("categories")}>Manage categories</button><button className="text-button" onClick={() => setScreen("today")}>Back to Today →</button></div><GoalsScreen client={client} initialGoalId={goalId} onWork={id => { setTaskId(id); setScreen("today"); }} /></> :
          screen === "categories" ? <CategoriesScreen client={client} /> :
-                                   <TodayScreen client={client} />}
+                                   <ExecutionWorkspace client={client} view={screen} navigate={setScreen} initialTask={taskId} openGoal={id => { setGoalId(id); setScreen("goals"); }} />}
       </main>
     </div>
   );

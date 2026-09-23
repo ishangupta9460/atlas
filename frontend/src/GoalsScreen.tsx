@@ -17,7 +17,7 @@ function goalBadgeClass(goal: Goal): string {
   return "badge active";
 }
 
-export default function GoalsScreen({ client }: { client: Client }) {
+export default function GoalsScreen({ client, initialGoalId, onWork }: { client: Client; initialGoalId?: number | null; onWork?: (id: number) => void }) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [cursor, setCursor] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,6 +28,14 @@ export default function GoalsScreen({ client }: { client: Client }) {
   const [selected, setSelected] = useState<Goal | null>(null);
   const [retry, setRetry] = useState(0);
   const [planningGoal, setPlanningGoal] = useState<Goal | null>(null);
+  useEffect(() => {
+    if (!initialGoalId) return;
+    const controller = new AbortController();
+    client<Goal>(`/goals/${initialGoalId}`, { signal: controller.signal }).then(goal => {
+      if (!controller.signal.aborted) setPlanningGoal(goal);
+    }).catch(e => { if (!controller.signal.aborted) setError(messageOf(e)); });
+    return () => controller.abort();
+  }, [client, initialGoalId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -61,7 +69,7 @@ export default function GoalsScreen({ client }: { client: Client }) {
     finally { setPending(false); }
   }
 
-  if (planningGoal) return <GoalPlanScreen key={planningGoal.id} goal={planningGoal} client={client} onBack={() => setPlanningGoal(null)} />;
+  if (planningGoal) return <GoalPlanScreen key={planningGoal.id} goal={planningGoal} client={client} onBack={() => setPlanningGoal(null)} onWork={onWork} />;
 
   return (
     <>
