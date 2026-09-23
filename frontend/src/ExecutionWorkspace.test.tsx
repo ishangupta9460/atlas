@@ -19,6 +19,17 @@ beforeEach(() => {
     calls.push({ path, options });
     if (path === "/api/auth/me") return response({ id: 1, email: "person@example.com" });
     if (path === "/execution") return response(data);
+    if (path === "/goals") return response({ goals: [{ id: 10, title: "Ship Atlas", description: null, targetDeadline: null, lifecycleState: "active", planningState: "active" }], nextCursor: null });
+    if (path === "/goals/10") return response({ id: 10, title: "Ship Atlas", description: null, targetDeadline: null, lifecycleState: "active", planningState: "active" });
+    if (path === "/goals/10/roadmap") return response({ roadmap: { id: 1, milestones: [{ id: 1, title: "Foundation", order: 1 }] } });
+    if (path === "/goals/10/commitments") return response({ commitments: [task, { ...task, id: 2, title: "Write the next chapter" }], nextCursor: null });
+    if (path === "/categories") return response([]);
+    if (path === "/schedule/blocks") {
+      const body = JSON.parse(String(options.body));
+      const b = { id: 1, commitmentId: body.commitmentId, startTime: body.startTime, endTime: body.endTime, state: "scheduled", placementReason: "You chose this work window.", sessionState: null, actualStart: null, runningSince: null, activeMillis: 0 };
+      data.blocks = [b];
+      return response(b);
+    }
     if (path.includes("/session/")) {
       const action = path.split("/").pop();
       if (action === "pause" && failPause) { failPause = false; return response({ message: "Connection interrupted. Try again." }, 503); }
@@ -111,3 +122,65 @@ it("keeps the queue short and exposes context and later work on demand", async (
   const brief = screen.getByRole("region", { name: "Task brief" });
   expect(within(brief).getByText("Milestone · Foundation")).toBeInTheDocument();
 });
+
+it("walks the complete critical path: Goal -> Plan -> Today -> Focus -> Pause -> Resume -> Finish -> Next -> Progress", async () => {
+  data.blocks = []; // Start with no pre-existing scheduled windows
+  const user = userEvent.setup(); render(<App />);
+
+  // 1. Go to Goals
+  await user.click(await screen.findByRole("button", { name: "Goals" }));
+  await screen.findByRole("heading", { name: "What do you want to achieve?" });
+  expect(screen.getByText("Ship Atlas")).toBeInTheDocument();
+
+  // 2. Open Plan
+  await user.click(screen.getByRole("button", { name: "Open plan" }));
+  await screen.findByRole("heading", { name: "Actionable tasks" });
+  expect(screen.getByText("Build the sign-in flow")).toBeInTheDocument();
+
+  // 3. Click "Work on this →"
+  await user.click(screen.getAllByRole("button", { name: "Work on this →" })[0]);
+
+  // 4. Transitions to Today with Task Brief open
+  await screen.findByRole("heading", { name: "Today" });
+  const brief = await screen.findByRole("region", { name: "Task brief" });
+  expect(within(brief).getByRole("heading", { name: "Build the sign-in flow" })).toBeInTheDocument();
+
+  // 5. Set work window
+  await user.click(within(brief).getByRole("button", { name: "Set work window" }));
+  await screen.findByText("Work window saved. It’s ready on Today and Schedule.");
+
+  // 6. Now on Today: Start current task
+  const startBtn = await screen.findByRole("button", { name: "Start" });
+  expect(startBtn).toBeEnabled();
+  await user.click(startBtn);
+
+  // 7. Focus mode: active timer
+  await screen.findByRole("heading", { name: "Focus" });
+  expect(screen.getByText("In progress")).toBeInTheDocument();
+
+  // 8. Pause
+  await user.click(screen.getByRole("button", { name: "Pause" }));
+  await screen.findByText("Paused · continue when ready");
+
+  // 9. Resume
+  await user.click(screen.getByRole("button", { name: "Resume" }));
+  await screen.findByText("In progress");
+
+  // 10. Finish
+  await user.click(screen.getByRole("button", { name: "Finish" }));
+  await user.type(screen.getByLabelText("What you accomplished"), "Implemented sign-in and goal planning seamlessly.");
+  await user.click(screen.getByRole("button", { name: "Save and finish" }));
+  await screen.findByText("Task complete. Your progress is saved.");
+
+  // 11. See what's next
+  await user.click(screen.getByRole("button", { name: "See what’s next →" }));
+  await screen.findByRole("heading", { name: "Today" });
+  expect(screen.getByText("Write the next chapter")).toBeInTheDocument();
+
+  // 12. Open Progress
+  await user.click(screen.getByRole("button", { name: "Progress" }));
+  await screen.findByRole("heading", { name: "Progress" });
+  expect(screen.getByText("Implemented sign-in and goal planning seamlessly.")).toBeInTheDocument();
+  expect(screen.getByText("1")).toBeInTheDocument(); // 1 task complete
+});
+

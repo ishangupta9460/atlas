@@ -131,4 +131,73 @@ class ExecutionIntegrationTest {
         assertThrows(ExecutionException.class,()->service.transition(owner,second,"start","second",null));
         assertEquals("paused",service.workspace(owner).blocks().get(0).sessionState());
     }
+    @Test void completeEndToEndExecutionJourney() throws Exception {
+        // 1. Goal
+        String goalRes=mvc.perform(post("/goals").header("Authorization","Bearer "+token).contentType("application/json")
+            .content("{\"title\":\"Launch Project Atlas\"}")).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        long goalId=mapper.readTree(goalRes).path("id").asLong();
+
+        // 2. Plan (Roadmap & Milestone)
+        String roadRes=mvc.perform(post("/goals/"+goalId+"/roadmaps").header("Authorization","Bearer "+token).contentType("application/json")
+            .content("{}")).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        long roadmapId=mapper.readTree(roadRes).path("id").asLong();
+        String mileRes=mvc.perform(post("/roadmaps/"+roadmapId+"/milestones").header("Authorization","Bearer "+token).contentType("application/json")
+            .content("{\"title\":\"Core Execution Engine\",\"order\":1}")).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        long milestoneId=mapper.readTree(mileRes).path("id").asLong();
+
+        // 3. Executable Tasks
+        String t1Res=mvc.perform(post("/commitments").header("Authorization","Bearer "+token).contentType("application/json")
+            .content("{\"title\":\"Implement Work Window Persistence\",\"completionCriterion\":\"Tables and transitions tested\",\"goalId\":"+goalId+",\"milestoneId\":"+milestoneId+",\"importance\":\"high\",\"flexibilityTier\":\"fixed\"}"))
+            .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        long task1=mapper.readTree(t1Res).path("id").asLong();
+        String t2Res=mvc.perform(post("/commitments").header("Authorization","Bearer "+token).contentType("application/json")
+            .content("{\"title\":\"Build Focus Mode UI\",\"completionCriterion\":\"Focus timer ticks and pauses\",\"goalId\":"+goalId+",\"milestoneId\":"+milestoneId+",\"importance\":\"medium\",\"flexibilityTier\":\"flexible\"}"))
+            .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        long task2=mapper.readTree(t2Res).path("id").asLong();
+
+        // 4. Open Today workspace
+        mvc.perform(get("/execution").header("Authorization","Bearer "+token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.tasks.length()").value(2))
+            .andExpect(jsonPath("$.tasks[0].goalTitle").value("Launch Project Atlas"))
+            .andExpect(jsonPath("$.tasks[0].milestoneTitle").value("Core Execution Engine"))
+            .andExpect(jsonPath("$.blocks").isEmpty())
+            .andExpect(jsonPath("$.history").isEmpty());
+
+        // 5. Schedule Task 1
+        String blockRes=mvc.perform(post("/schedule/blocks").header("Authorization","Bearer "+token).header("Idempotency-Key","e2e-place").contentType("application/json")
+            .content("{\"commitmentId\":"+task1+",\"startTime\":\""+Instant.now().minusSeconds(1)+"\",\"endTime\":\""+Instant.now().plusSeconds(1800)+"\"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.state").value("scheduled")).andReturn().getResponse().getContentAsString();
+        long block1=mapper.readTree(blockRes).path("id").asLong();
+
+        // 6. Start Task 1 -> Focus
+        action(block1,"start","e2e-start","{}").andExpect(status().isOk()).andExpect(jsonPath("$.sessionState").value("running"));
+        assertEquals("in_progress",commitments.get(owner,task1).workState());
+
+        // 7. Pause & Resume
+        action(block1,"pause","e2e-pause","{}").andExpect(status().isOk()).andExpect(jsonPath("$.sessionState").value("paused"));
+        action(block1,"resume","e2e-resume","{}").andExpect(status().isOk()).andExpect(jsonPath("$.sessionState").value("running"));
+
+        // 8. Finish Task 1
+        action(block1,"finish","e2e-finish","{\"report\":\"All integration tests pass and tables created.\",\"completionPct\":100}")
+            .andExpect(status().isOk()).andExpect(jsonPath("$.sessionState").value("finished"));
+        assertEquals("completed",commitments.get(owner,task1).workState());
+
+        // 9. Next work item visible in Today workspace
+        var ws=service.workspace(owner);
+        assertEquals(1,ws.history().size());
+        assertEquals("Implement Work Window Persistence",ws.history().get(0).title());
+        assertEquals("All integration tests pass and tables created.",ws.history().get(0).report());
+        assertEquals(new BigDecimal("100.00"),ws.history().get(0).completionPct());
+
+        // Task 1 is completed; Task 2 is ready and next
+        assertEquals("completed",ws.tasks().stream().filter(t->t.id().equals(task1)).findFirst().get().workState());
+        assertEquals("ready",ws.tasks().stream().filter(t->t.id().equals(task2)).findFirst().get().workState());
+
+        // 10. Security / Cross-user isolation
+        mvc.perform(get("/execution").header("Authorization","Bearer "+foreign))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.tasks").isEmpty()).andExpect(jsonPath("$.history").isEmpty());
+        mvc.perform(post("/blocks/"+block1+"/session/start").header("Authorization","Bearer "+foreign).header("Idempotency-Key","foreign-start"))
+            .andExpect(status().isNotFound());
+    }
 }
