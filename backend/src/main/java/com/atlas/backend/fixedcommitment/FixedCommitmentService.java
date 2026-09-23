@@ -22,6 +22,7 @@ public class FixedCommitmentService {
 
     @Transactional
     public FixedCommitmentResponse create(Long userId, CreateFixedCommitmentRequest request) {
+        repository.lockOwner(userId);
         FixedCommitmentInput.recurrence(request.recurrenceRule());
         FixedCommitment value = repository.save(FixedCommitment.create(userId, FixedCommitmentInput.title(request.title()),
                 FixedCommitmentInput.time(request.startTime(), "startTime"), FixedCommitmentInput.time(request.endTime(), "endTime"),
@@ -37,6 +38,7 @@ public class FixedCommitmentService {
 
     @Transactional
     public FixedCommitmentResponse update(Long userId, Long id, UpdateFixedCommitmentRequest request) {
+        repository.lockOwner(userId);
         FixedCommitment value = findLocked(userId, id);
         FixedCommitmentInput.recurrence(request.recurrenceRule());
         Map<String, Object> before = snapshot(value);
@@ -51,6 +53,7 @@ public class FixedCommitmentService {
 
     @Transactional
     public void delete(Long userId, Long id) {
+        repository.lockOwner(userId);
         FixedCommitment value = findLocked(userId, id);
         Map<String, Object> before = snapshot(value);
         repository.delete(value);

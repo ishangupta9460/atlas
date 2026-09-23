@@ -13,7 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class EventQueryService {
     private static final Map<String, String> OWNED_TABLES = Map.of(
         "goal", "goals", "commitment", "commitments", "task", "tasks",
-        "recurring_intention", "recurring_intentions", "fixed_commitment", "fixed_commitments");
+        "recurring_intention", "recurring_intentions", "fixed_commitment", "fixed_commitments",
+        "scheduled_block", "scheduled_blocks");
     private final JdbcTemplate jdbc;
     private final EventJpaRepository events;
 

@@ -65,6 +65,11 @@ public class Commitment {
         workState=target;
     }
     static boolean text(String value) { return value != null && !value.isBlank(); }
+    void reportProgress(BigDecimal percentage) {
+        if (percentage == null || percentage.signum() < 0 || percentage.compareTo(new BigDecimal("100")) > 0)
+            throw CommitmentException.invalid("Completion must be between 0 and 100");
+        currentCompletionPct = percentage.setScale(2, java.math.RoundingMode.HALF_UP);
+    }
     static Instant normalize(Instant value) {
         if (value == null) return null;
         if (value.isBefore(Instant.parse("1000-01-01T00:00:00Z")) || !value.isBefore(Instant.parse("+10000-01-01T00:00:00Z")))

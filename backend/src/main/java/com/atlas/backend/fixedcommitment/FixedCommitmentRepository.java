@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface FixedCommitmentRepository extends JpaRepository<FixedCommitment, Long> {
+    @Query(value="SELECT id FROM users WHERE id=:userId FOR UPDATE", nativeQuery=true)
+    Long lockOwner(@Param("userId") Long userId);
     Optional<FixedCommitment> findByIdAndUserId(Long id, Long userId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
