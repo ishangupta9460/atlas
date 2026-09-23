@@ -14,6 +14,7 @@ beforeEach(() => {
   sessionStorage.clear(); sessionStorage.setItem("atlas.session", "token");
   routes = {
     "GET /api/auth/me": () => response({ id: 1, email: "person@example.com" }),
+    "GET /execution": () => response({ serverTime: new Date().toISOString(), tasks: [], blocks: [], fixed: [], history: [] }),
     "GET /goals": () => response({ goals: [{ id: 1, title: "Music", lifecycleState: "active", planningState: "active" }], nextCursor: null }),
     "GET /goals/1/roadmap": () => response({ roadmap: null }),
     "GET /goals/1/commitments": () => response({ commitments: [task], nextCursor: null }),
@@ -30,6 +31,7 @@ beforeEach(() => {
 });
 async function plan() {
   const user = userEvent.setup(); render(<App />);
+  await user.click(await screen.findByRole("button", { name: "Goals" }));
   await user.click(await screen.findByRole("button", { name: "Open plan" }));
   await screen.findByText(task.title);
   return user;
@@ -92,7 +94,8 @@ it("edits category defaults, reports in-use deletion, and handles a successful 2
   routes["PATCH /categories/7"] = body => response({ ...category, ...body });
   routes["DELETE /categories/7"] = () => response({ message: "Category is still used by a task" }, 409);
   const user = userEvent.setup(); render(<App />);
-  await user.click(await screen.findByRole("button", { name: "Categories" }));
+  await user.click(await screen.findByRole("button", { name: "Goals" }));
+  await user.click(await screen.findByRole("button", { name: "Manage categories" }));
   await user.click(await screen.findByRole("button", { name: "Edit category Learning" }));
   await user.click(screen.getByRole("button", { name: "Continue" }));
   await user.selectOptions(screen.getByLabelText(/Usual importance/), "");

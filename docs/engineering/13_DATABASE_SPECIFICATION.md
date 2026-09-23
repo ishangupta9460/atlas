@@ -6,6 +6,16 @@
 
 ## 1. Core Tables (mapping `02`'s entities 1:1 unless noted)
 
+Core execution V11 adds manual `scheduled_blocks` (owner, XOR source FKs, UTC window,
+state, placement reason, sticky user flag, replacement link), mutable `focus_sessions`
+(one per block, running/paused/finished state and accumulated active milliseconds),
+and immutable `actual_sessions` inserted at Finish (one per block, actual bounds,
+active milliseconds excluding pauses, free-form outcome and reported completion).
+`execution_idempotency` stores owner/key, request fingerprint and original response.
+Runtime and immutable history are separate so pausing never rewrites completed history.
+This increment places Commitment windows only; recurring placement is not implemented.
+All runtime/window instants use UTC DATETIME(6). Execution, replay and events commit atomically.
+
 | Table | Notes |
 |---|---|
 | `users` | Standard auth fields, owned in detail by `15_SECURITY_AND_PRIVACY.md` §1 |

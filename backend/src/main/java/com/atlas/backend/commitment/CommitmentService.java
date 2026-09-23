@@ -61,7 +61,7 @@ public class CommitmentService {
     }
     /** Internal execution integration seam; deliberately not exposed as an HTTP state setter. */
     @Transactional
-    CommitmentResponse transition(Long owner, Long id, String target, boolean blockPlaced, boolean userTrigger) {
+    public CommitmentResponse transition(Long owner, Long id, String target, boolean blockPlaced, boolean userTrigger) {
         Commitment value=repository.lockOwned(id,owner).orElseThrow(CommitmentException::missing);
         String previous=value.getWorkState();
         Map<String,Object> before=snapshot(value);
@@ -78,6 +78,15 @@ public class CommitmentService {
     private void ready(Commitment value) {
         Map<String,Object> before=snapshot(value);
         if (value.establishReadiness()) event(value,"task.ready",Map.of("before",before,"after",snapshot(value)));
+    }
+    /** Called only by execution after validating the owned live session. */
+    @Transactional
+    public void reportExecution(Long owner, Long id, java.math.BigDecimal percentage) {
+        Commitment value = repository.lockOwned(id, owner).orElseThrow(CommitmentException::missing);
+        Map<String,Object> before = snapshot(value);
+        value.reportProgress(percentage);
+        event(value, "task.progress_changed", Map.of("before", before, "after", snapshot(value)));
+        transition(owner, id, value.getCurrentCompletionPct().compareTo(new java.math.BigDecimal("100")) == 0 ? "completed" : "ready", true, true);
     }
     private Commitment.Fields fields(Long owner, Commitment old, CommitmentRequest r) {
         Long milestone = r.milestoneId()==null && old!=null ? old.getMilestoneId() : id(r.milestoneId());

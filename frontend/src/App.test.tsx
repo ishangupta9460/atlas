@@ -9,7 +9,9 @@ const goal = { id: 1, title: "Learn piano", description: null, targetDeadline: n
 function reply(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }); }
 function enqueue(...bodies: unknown[]) { bodies.forEach(body => fetchMock.mockResolvedValueOnce(reply(body))); }
 function signedIn() { sessionStorage.setItem("atlas.session", "test-token"); enqueue(profile); }
-beforeEach(() => { sessionStorage.clear(); localStorage.clear(); fetchMock.mockReset(); vi.stubGlobal("fetch", fetchMock); });
+beforeEach(() => { sessionStorage.clear(); localStorage.clear(); fetchMock.mockReset();
+  vi.stubGlobal("fetch", (path: string, options: RequestInit) => path === "/execution" ? Promise.resolve(reply({ serverTime: new Date().toISOString(), tasks: [], blocks: [], fixed: [], history: [] })) : fetchMock(path, options));
+});
 
 it("registers, signs in, captures a goal, edits its date, and signs out", async () => {
   const user = userEvent.setup();
@@ -19,6 +21,7 @@ it("registers, signs in, captures a goal, edits its date, and signs out", async 
   await user.type(screen.getByLabelText("Email"), profile.email);
   await user.type(screen.getByLabelText("Password"), "password123");
   await user.click(screen.getByRole("button", { name: "Create account" }));
+  await user.click(await screen.findByRole("button", { name: "Goals" }));
   await screen.findByText("A little intention goes a long way.");
   await user.type(screen.getByLabelText("Your next goal"), goal.title);
   await user.click(screen.getByRole("button", { name: "Save goal" }));
@@ -37,6 +40,7 @@ it("registers, signs in, captures a goal, edits its date, and signs out", async 
 it("restores an authenticated session and paginates saved goals", async () => {
   signedIn(); enqueue({ goals: [goal], nextCursor: 1 }, { goals: [{ ...goal, id: 2, title: "Read more" }], nextCursor: null });
   const user = userEvent.setup(); render(<App />);
+  await user.click(await screen.findByRole("button", { name: "Goals" }));
   await screen.findByText(goal.title);
   await user.click(screen.getByRole("button", { name: "Show more goals" }));
   await screen.findByText("Read more");
@@ -70,8 +74,9 @@ it("clears private content and the saved token when a protected request expires"
   signedIn(); enqueue({ goals: [goal], nextCursor: null });
   fetchMock.mockResolvedValueOnce(reply({ message: "Authentication required" }, 401));
   const user = userEvent.setup(); render(<App />);
+  await user.click(await screen.findByRole("button", { name: "Goals" }));
   await screen.findByText(goal.title);
-  await user.click(screen.getByRole("button", { name: "Tasks" }));
+  await user.click(screen.getByRole("button", { name: "Manage categories" }));
   await screen.findByText("Your session ended. Sign in to continue.");
   expect(screen.queryByText(goal.title)).not.toBeInTheDocument();
   expect(sessionStorage.getItem("atlas.session")).toBeNull();
@@ -85,14 +90,17 @@ it("distinguishes a connection failure from expired credentials during restore",
   expect(sessionStorage.getItem("atlas.session")).toBe("test-token");
   enqueue(profile, { goals: [goal], nextCursor: null });
   await user.click(screen.getByRole("button", { name: "Try again" }));
+  await user.click(await screen.findByRole("button", { name: "Goals" }));
   await screen.findByText(goal.title);
 });
 
 it("runs the existing task create, start, finish loop", async () => {
   signedIn(); enqueue({ goals: [], nextCursor: null }, [], { id: 1, title: "Read a chapter", status: "ready" }, { id: 1, title: "Read a chapter", status: "in_progress" }, { id: 1, title: "Read a chapter", status: "completed" });
   const user = userEvent.setup(); render(<App />);
+  await user.click(await screen.findByRole("button", { name: "Goals" }));
   await screen.findByText("A little intention goes a long way.");
-  await user.click(screen.getByRole("button", { name: "Tasks" }));
+  await user.click(screen.getByRole("button", { name: "Today" }));
+  await user.click(await screen.findByText("Earlier quick tasks"));
   await screen.findByText("A clear space.");
   await user.type(screen.getByLabelText("What needs doing?"), "Read a chapter");
   await user.click(screen.getByRole("button", { name: "Add task" }));
@@ -106,6 +114,7 @@ it("retains goal input and allows retry when saving fails", async () => {
   signedIn(); enqueue({ goals: [], nextCursor: null });
   fetchMock.mockResolvedValueOnce(reply({ message: "Could not save" }, 500)); enqueue(goal);
   const user = userEvent.setup(); render(<App />);
+  await user.click(await screen.findByRole("button", { name: "Goals" }));
   await screen.findByText("A little intention goes a long way.");
   await user.type(screen.getByLabelText("Your next goal"), goal.title);
   await user.click(screen.getByRole("button", { name: "Save goal" }));

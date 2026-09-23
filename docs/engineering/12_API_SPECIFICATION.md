@@ -291,6 +291,36 @@ Creation, meaningful update and deletion respectively write `fixed_commitment.cr
 | POST | `/blocks/{id}/session/resume` | — |
 | POST | `/blocks/{id}/session/finish` | Prompts completion report (`09` §5) |
 
+### 7.1 Core execution batch — implemented contract (2026-09-23)
+
+The core-execution build adds user-directed windows, not autonomous placement or recovery:
+
+- `GET /execution`: authenticated, owner-scoped workspace with `serverTime`, `tasks`
+  (goal/milestone/category context, progress and unfinished prerequisite count), `blocks`
+  (window, placement reason and runtime state), `fixed`, and immutable finished-session `history`.
+- `POST /schedule/blocks`: `{commitmentId, startTime, endTime}`; explicit-offset instants,
+  positive window up to 24 hours, starting now or in the future. Returns the block (200).
+  Requires Ready work, active/at-risk parent planning, completed prerequisites, no existing
+  open window for the task, and no overlapping fixed commitment or open work window.
+- `POST /schedule/blocks/{id}/move`: same body, same commitment; only an unstarted
+  window can move. Supersedes and links the old block, creates a replacement, never deletes history.
+- Start/Pause/Resume routes above return the block with `sessionState`, `actualStart`,
+  `runningSince`, and accumulated `activeMillis`. One unfinished session per user;
+  Start must be within the window and rechecks prerequisites and fixed conflicts.
+- Finish accepts `{report, completionPct}`: nonblank free text up to 8,000 characters,
+  0–100 with at most two decimal places. UI offers Complete or More remains and an
+  optional adjustment to the previous estimate. Finish freezes history and updates
+  belief state atomically; 100 completes the task, otherwise remaining work becomes Ready.
+- Every mutation requires `Idempotency-Key` (1–100 ASCII letters/digits/hyphens/underscores).
+  Keys are scoped to the owner; replay returns the original JSON, different payload reuse
+  returns 409. Invalid input/missing key = 400, missing/foreign entity = 404, invalid state = 409.
+  All state, history, events, and replay records share one transaction.
+- Fixed writes serialize with execution but preserve their existing overlap-allowed
+  contract. New conflicts are displayed; Start refuses a conflicting window. No silent movement.
+- `/schedule/today`, `/schedule/week`, automatic placement/buffers, progress correction,
+  retroactive reporting, and recovery orchestration remain future contracts. The initial
+  Schedule UI is a seven-day agenda over recorded windows and fixed commitments.
+
 ## 8. Resources
 
 | Method | Route | Purpose |

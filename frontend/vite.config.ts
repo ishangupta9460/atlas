@@ -13,6 +13,9 @@ export default defineConfig({
       "/milestones": "http://localhost:8080",
       "/commitments": "http://localhost:8080",
       "/categories": "http://localhost:8080",
+      "/execution": "http://localhost:8080",
+      "/schedule": "http://localhost:8080",
+      "/blocks": "http://localhost:8080",
     },
   },
 });
