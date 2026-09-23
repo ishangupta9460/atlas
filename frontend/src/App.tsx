@@ -11,6 +11,8 @@ function persistToken(token: string | null) {
   try { if (token) sessionStorage.setItem(SESSION_KEY, token); else sessionStorage.removeItem(SESSION_KEY); } catch { /* In-memory sign-in still works when storage is unavailable. */ }
 }
 
+type Screen = "today" | "goals" | "categories";
+
 export default function App() {
   const [token, setToken] = useState(savedToken);
   const [user, setUser] = useState<User | null>(null);
@@ -18,7 +20,7 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [verificationError, setVerificationError] = useState("");
   const [retry, setRetry] = useState(0);
-  const [screen, setScreen] = useState<"goals" | "tasks" | "categories">("goals");
+  const [screen, setScreen] = useState<Screen>("goals");
   const activeToken = useRef(token);
   activeToken.current = token;
 
@@ -39,8 +41,6 @@ export default function App() {
     request<User>("/api/auth/me", token, { signal: controller.signal })
       .then(profile => {
         if (controller.signal.aborted) return;
-        // Set both values before this effect's user dependency can clean it up.
-        // Otherwise the cleanup aborts the request before `finally` clears loading.
         setUser(profile);
         setChecking(false);
       })
@@ -60,15 +60,55 @@ export default function App() {
     }
   }, [token, signOut]);
 
-  if (checking) return <main className="loading-page" role="status">Opening your space…</main>;
-  if (token && !user) return <main className="loading-page"><p role="alert">{verificationError}</p><button onClick={() => setRetry(retry + 1)}>Try again</button><button onClick={() => signOut()}>Sign out</button></main>;
+  if (checking) return <main className="loading-page" role="status"><p>Opening your space…</p></main>;
+  if (token && !user) return (
+    <main className="loading-page">
+      <p role="alert">{verificationError}</p>
+      <button onClick={() => setRetry(retry + 1)}>Try again</button>
+      <button onClick={() => signOut()}>Sign out</button>
+    </main>
+  );
   if (!user) return <AuthScreen notice={notice} onSignIn={(nextToken, profile) => { persistToken(nextToken); setToken(nextToken); setUser(profile); setNotice(""); }} />;
 
-  return <div className="app-shell">
-    <header className="app-header"><a className="brand" href="#" onClick={e => { e.preventDefault(); setScreen("goals"); }}>atlas<span> / make room</span></a>
-      <div className="account"><span>{user.email}</span><button className="text-button" onClick={() => signOut()}>Sign out</button></div>
-    </header>
-    <nav aria-label="Main navigation"><button aria-current={screen === "goals" ? "page" : undefined} onClick={() => setScreen("goals")}>Goals</button><button aria-current={screen === "tasks" ? "page" : undefined} onClick={() => setScreen("tasks")}>Tasks</button><button aria-current={screen === "categories" ? "page" : undefined} onClick={() => setScreen("categories")}>Categories</button></nav>
-    <main className="workspace" key={user.id}>{screen === "goals" ? <GoalsScreen client={client} /> : screen === "categories" ? <CategoriesScreen client={client} /> : <TodayScreen client={client} />}</main>
-  </div>;
+  const nav: { id: Screen; label: string }[] = [
+    { id: "today",      label: "Tasks" },
+    { id: "goals",      label: "Goals" },
+    { id: "categories", label: "Categories" },
+  ];
+
+  return (
+    <div className="app-shell">
+      <header className="app-header">
+        {/* Brand wordmark */}
+        <a className="brand" href="#" onClick={e => { e.preventDefault(); setScreen("today"); }}>
+          atlas
+        </a>
+
+        {/* Inline nav links */}
+        <nav className="app-nav" aria-label="Main navigation">
+          {nav.map(({ id, label }) => (
+            <button
+              key={id}
+              aria-current={screen === id ? "page" : undefined}
+              onClick={() => setScreen(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Right: account info + sign out */}
+        <div className="account">
+          <span title={user.email}>{user.email}</span>
+          <button className="text-button" onClick={() => signOut()}>Sign out</button>
+        </div>
+      </header>
+
+      <main className="workspace" key={user.id}>
+        {screen === "goals"      ? <GoalsScreen client={client} /> :
+         screen === "categories" ? <CategoriesScreen client={client} /> :
+                                   <TodayScreen client={client} />}
+      </main>
+    </div>
+  );
 }

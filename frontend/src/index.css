@@ -1,103 +1,857 @@
+/* =====================================================================
+   ATLAS DESIGN SYSTEM — index.css
+   Single source of truth for all visual primitives.
+   Future features must extend these tokens, not invent new ones.
+   ===================================================================== */
+
 @import "tailwindcss";
 
-:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #263b34; background: #f5f4ee; font-synthesis: none; }
-* { box-sizing: border-box; }
+/* ---------------------------------------------------------------------
+   1. DESIGN TOKENS
+   --------------------------------------------------------------------- */
+:root {
+  /* Palette — restrained neutral. Color comes from typography & space. */
+  --bg:              #f7f6f2;   /* warm off-white page background          */
+  --surface:         #ffffff;   /* panel / inset surface                    */
+  --surface-tint:    #faf9f6;   /* subtly elevated surface (active blocks)  */
+  --border:          #e4e2d9;   /* standard divider / row separator         */
+  --border-strong:   #ccc9be;   /* input borders, panel edges               */
+  --border-focus:    #b08040;   /* warm amber focus ring                    */
+
+  /* Text */
+  --text-primary:    #1a1a17;   /* headings, primary body                   */
+  --text-secondary:  #3a3a33;   /* body copy                                */
+  --text-muted:      #6e6e62;   /* hints, metadata, placeholder             */
+  --text-micro:      #999989;   /* eyebrows, timestamp, micro labels        */
+
+  /* Accent (primary action) */
+  --accent:          #1c1c18;   /* primary button bg — near-black           */
+  --accent-fg:       #f7f6f2;   /* primary button text                      */
+  --accent-hover:    #333328;
+
+  /* Semantic */
+  --success-bg:      #edf4ef;
+  --success-fg:      #2d6a4f;
+  --warning-bg:      #fef3e2;
+  --warning-fg:      #875500;
+  --danger-bg:       #fdf0ed;
+  --danger-fg:       #8b3824;
+  --notice-fg:       #2d6a4f;
+
+  /* Badge defaults */
+  --badge-bg:        #ededea;
+  --badge-fg:        #4a4a40;
+
+  /* Typography */
+  --font-serif:      Georgia, "Times New Roman", serif;
+  --font-sans:       Inter, system-ui, -apple-system, sans-serif;
+
+  /* Spacing scale */
+  --space-1:   0.25rem;
+  --space-2:   0.5rem;
+  --space-3:   0.75rem;
+  --space-4:   1rem;
+  --space-5:   1.25rem;
+  --space-6:   1.5rem;
+  --space-8:   2rem;
+  --space-10:  2.5rem;
+  --space-12:  3rem;
+  --space-16:  4rem;
+
+  /* Component tokens */
+  --radius-sm:    4px;
+  --radius-md:    6px;
+  --radius-lg:    10px;
+  --btn-height:   2.125rem;   /* 34px — consistent button height */
+  --header-h:     3.25rem;
+}
+
+/* ---------------------------------------------------------------------
+   2. RESET & BASE
+   --------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 body { margin: 0; min-width: 320px; }
-button, input { font: inherit; }
-button { cursor: pointer; border: 1px solid #cbd2c8; border-radius: 8px; padding: .65rem 1rem; background: transparent; color: inherit; font-weight: 600; }
-button:hover:not(:disabled) { background: #e7ebe2; }
-button:disabled { opacity: .5; cursor: default; }
-button.primary { color: white; background: #285c45; border-color: #285c45; }
-button.primary:hover:not(:disabled) { background: #1c4935; }
-button.text-button { border: 0; padding: .6rem 0; }
-a { color: inherit; }
-input { display: block; width: 100%; background: #fff; border: 1px solid #b9c5ba; border-radius: 8px; padding: .8rem; color: #263b34; min-width: 0; }
-:focus-visible { outline: 3px solid #b77836; outline-offset: 3px; }
-label { display: block; font-size: .9rem; font-weight: 600; margin: 1rem 0 .45rem; }
-h1, h2, h3, p { margin: 0; }
-h1 { font-family: Georgia, serif; font-size: clamp(2rem, 4vw, 3.1rem); line-height: 1.15; font-weight: 400; letter-spacing: -.035em; }
-h2 { font-size: 1.25rem; font-weight: 650; }
-h3 { font-size: 1.15rem; font-weight: 600; overflow-wrap: anywhere; }
-p { line-height: 1.65; }
-.eyebrow { font-size: .7rem; letter-spacing: .16em; font-weight: 700; color: #61735f; }
-.hint { color: #647268; font-size: .85rem; }
-.card { background: #fffef9; border: 1px solid #dce0d4; border-radius: 14px; padding: 1.5rem; }
-.auth-layout { min-height: 100vh; display: grid; grid-template-columns: 1.1fr 1fr; gap: 5rem; align-items: center; max-width: 1150px; margin: auto; padding: 3rem; }
-.intro h1 { font-size: clamp(3rem, 5vw, 4.8rem); margin: 1.8rem 0; }
-.intro > p:last-child { color: #647268; }
-.auth-card h2 { margin: 1rem 0; }
-.auth-card form > button { width: 100%; margin: 1.5rem 0 .6rem; }
-.auth-card > .text-button { font-size: .85rem; }
-.app-shell { max-width: 1440px; margin: auto; }
-.app-header { display: flex; align-items: center; justify-content: space-between; padding: 1.2rem 3rem; border-bottom: 1px solid #dce0d4; gap: 1rem; }
-.brand { text-decoration: none; font-family: Georgia, serif; font-size: 2rem; letter-spacing: -.07em; }
-.brand span { font-family: system-ui, sans-serif; letter-spacing: .05em; font-size: .7rem; margin-left: 1rem; color: #647268; }
-.account { display: flex; align-items: center; gap: 1.5rem; font-size: .8rem; }
-.account span { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
-nav { display: flex; gap: .5rem; padding: 1rem 3rem; }
-nav button { border-color: transparent; color: #647268; }
-nav button[aria-current="page"] { background: #e2e8db; color: #244f3b; }
-.workspace { max-width: 1020px; padding: 2rem 2rem 5rem; margin: auto; }
-.page-heading { margin-bottom: 2rem; }
-.page-heading h1 { margin: .9rem 0; }
-.page-heading > p:last-child { color: #647268; }
-.capture label { margin-top: 0; }
-.input-row { display: flex; gap: .75rem; }
-.input-row button { white-space: nowrap; }
-.section-heading { display: flex; justify-content: space-between; align-items: center; margin: 2.5rem 0 1rem; gap: 1rem; }
-.goal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
-.goal-card h3 { margin: 1.3rem 0 .6rem; }
-.goal-card > .text-button { margin-top: 1rem; }
-.badges { display: flex; gap: .5rem; }
-.badge { background: #edf1e7; color: #496447; border-radius: 5px; padding: .25rem .55rem; font-size: .7rem; display: inline-block; text-transform: capitalize; }
-.badge.risk { background: #fae5cf; color: #805323; }
-.actions { display: flex; gap: .5rem; margin-top: 1rem; }
-.empty-state { padding: 3.5rem 1.5rem; text-align: center; border: 1px dashed #cbd2c8; border-radius: 14px; }
-.empty-state p { margin-top: .65rem; color: #647268; }
-.empty-mark { display: inline-block; font-size: 2rem; color: #64825e; margin-bottom: 1rem; }
-.error { background: #ffede6; color: #8b3824; border-radius: 8px; padding: .85rem; margin: 1rem 0; }
-.notice { color: #315f40; margin: 1rem 0; }
-.load-more { margin-top: 1.5rem; }
-.task-list { list-style: none; padding: 0; display: grid; gap: .75rem; }
-.task-row { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
-.task-row h3 { margin-top: .7rem; }
-.loading-page { padding: 4rem; text-align: center; }
-.loading-page button { margin: 1rem .5rem; }
-.plan-section { margin: 2rem 0; padding-top: 1.5rem; border-top: 1px solid #dce0d4; }
-.plan-section .section-heading { margin: 0 0 .75rem; }
-.milestone-list { padding-left: 1.5rem; }
-.milestone-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
-.milestone-row span { overflow-wrap: anywhere; min-width: 0; }
-.plan-task-list { list-style: none; padding: 0; }
-.plan-task { border-bottom: 1px solid #dce0d4; padding: 1.5rem 0; }
-.plan-task h3 { margin: .75rem 0 .4rem; }
-.plan-task p { white-space: pre-wrap; overflow-wrap: anywhere; }
-.plan-empty { padding: 2rem 0; color: #647268; }
-.commitment-editor { margin-top: 1.5rem; }
-textarea, select { display: block; width: 100%; font: inherit; color: inherit; background: #fff; border: 1px solid #b9c5ba; border-radius: 8px; padding: .8rem; }
+
+h1, h2, h3, h4, p { margin: 0; }
+
+a { color: inherit; text-decoration: none; }
+
+/* ---------------------------------------------------------------------
+   3. TYPOGRAPHY SCALE
+   --------------------------------------------------------------------- */
+
+/* Display heading — serif, used for page titles & task titles */
+h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 4.5vw, 3.2rem);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+/* Section heading — interface weight */
+h2 {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: 0.005em;
+  color: var(--text-primary);
+}
+
+/* Item title — interface medium */
+h3 {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+}
+
+h4 {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+p { line-height: 1.6; font-size: 0.9rem; color: var(--text-secondary); }
+
+/* Eyebrow / micro-label — ALL CAPS, tight tracking */
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--text-micro);
+}
+
+/* Hint / metadata text */
+.hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------------------------------
+   4. FOCUS TREATMENT
+   --------------------------------------------------------------------- */
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------------------------------------------------------------------
+   5. FORM CONTROLS
+   --------------------------------------------------------------------- */
+label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+  margin: var(--space-6) 0 var(--space-2);
+}
+
+input, textarea, select {
+  display: block;
+  width: 100%;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.75rem;
+  min-width: 0;
+  transition: border-color 0.15s;
+}
+
+input::placeholder, textarea::placeholder { color: var(--text-muted); }
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--border-focus);
+  outline: none;
+}
+
 textarea { resize: vertical; }
-details { margin-top: 1.2rem; }
-summary { cursor: pointer; }
-.actions, .badges { flex-wrap: wrap; }
-.category-swatch { display: inline-block; width: .75rem; height: .75rem; border-radius: 50%; margin-right: .5rem; border: 1px solid #647268; }
-input[type="color"] { width: 4rem; height: 3rem; padding: .3rem; }
-.dependency-panel { background: #edf1e7; border-radius: 10px; padding: 1.25rem; margin-top: 1rem; }
-.dependency-panel h4 { margin: 0 0 .5rem; }
-.dependency-list { list-style: none; padding: 0; margin: 1rem 0; }
-.dependency-list li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .75rem 0; border-bottom: 1px solid #cbd2c8; }
-.dependency-list li > div { min-width: 0; overflow-wrap: anywhere; }
-.dependency-list .badge { margin-left: .5rem; }
+
+select { cursor: pointer; }
+
+input[type="color"] { width: 4rem; height: 2.5rem; padding: 0.25rem; }
+
+input[type="date"] { cursor: pointer; }
+
+details { margin-top: var(--space-5); }
+summary { cursor: pointer; font-size: 0.9rem; color: var(--text-muted); }
+
+/* ---------------------------------------------------------------------
+   6. BUTTON SYSTEM
+   --------------------------------------------------------------------- */
+button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  height: var(--btn-height);
+  padding: 0 0.875rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  letter-spacing: 0.01em;
+}
+
+button:hover:not(:disabled) {
+  background: var(--border);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Primary — near-black fill */
+button.primary,
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+
+button.primary:hover:not(:disabled),
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+/* Quiet / text action */
+button.text-button,
+.btn-quiet {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  padding: 0;
+  height: auto;
+  font-size: 0.8rem;
+}
+
+button.text-button:hover:not(:disabled),
+.btn-quiet:hover:not(:disabled) {
+  background: none;
+  color: var(--text-primary);
+}
+
+/* Destructive */
+button.destructive,
+.btn-destructive {
+  color: var(--danger-fg);
+  border-color: var(--danger-fg);
+}
+
+button.destructive:hover:not(:disabled),
+.btn-destructive:hover:not(:disabled) {
+  background: var(--danger-bg);
+}
+
+/* ---------------------------------------------------------------------
+   7. BADGES
+   --------------------------------------------------------------------- */
+.badges { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+  border-radius: var(--radius-sm);
+  padding: 0.2rem 0.45rem;
+  white-space: nowrap;
+}
+
+.badge.active    { background: #e6f0ea; color: var(--success-fg); }
+.badge.completed { background: var(--badge-bg); color: var(--text-micro); }
+.badge.risk      { background: var(--warning-bg); color: var(--warning-fg); }
+.badge.danger    { background: var(--danger-bg); color: var(--danger-fg); }
+.badge.in-progress,
+.badge.now       { background: var(--accent); color: var(--accent-fg); }
+
+/* ---------------------------------------------------------------------
+   8. STATUS MESSAGES
+   --------------------------------------------------------------------- */
+.error {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  border: 1px solid #f0ccc4;
+  border-radius: var(--radius-md);
+  padding: 0.7rem 0.875rem;
+  font-size: 0.85rem;
+  margin: var(--space-4) 0;
+}
+
+.notice {
+  color: var(--notice-fg);
+  font-size: 0.85rem;
+  margin: var(--space-3) 0;
+}
+
+/* ---------------------------------------------------------------------
+   9. APP SHELL & NAVIGATION
+   --------------------------------------------------------------------- */
+.app-shell {
+  max-width: 1440px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Header — single unified bar: brand | nav | right actions */
+.app-header {
+  display: flex;
+  align-items: center;
+  height: var(--header-h);
+  padding: 0 var(--space-12);
+  border-bottom: 1px solid var(--border);
+  gap: var(--space-8);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* Brand wordmark */
+.brand {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  font-weight: 400;
+  letter-spacing: -0.06em;
+  color: var(--text-primary);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+/* Inline nav links — horizontal, inside header */
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex: 1;
+}
+
+.app-nav button {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  height: var(--header-h);
+  padding: 0 var(--space-4);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.005em;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.app-nav button:hover:not(:disabled) {
+  background: none;
+  color: var(--text-primary);
+}
+
+.app-nav button[aria-current="page"] {
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Header right section */
+.account {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.account span { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Main workspace */
+.workspace {
+  flex: 1;
+  max-width: 860px;
+  padding: var(--space-10) var(--space-12) var(--space-16);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Two-column layout variant (for screens with a sidebar panel) */
+.workspace-with-panel {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: var(--space-8);
+  max-width: 1120px;
+  padding: var(--space-10) var(--space-12) var(--space-16);
+  margin: 0 auto;
+  width: 100%;
+  align-items: start;
+}
+
+/* ---------------------------------------------------------------------
+   10. PAGE HEADING
+   --------------------------------------------------------------------- */
+.page-heading {
+  margin-bottom: var(--space-10);
+}
+
+.page-heading h1 {
+  margin: var(--space-2) 0 var(--space-3);
+}
+
+.page-heading > p:last-child {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  max-width: 52ch;
+}
+
+/* ---------------------------------------------------------------------
+   11. SECTION HEADING
+   --------------------------------------------------------------------- */
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  margin: var(--space-8) 0 var(--space-4);
+}
+
+.section-heading h2 {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-micro);
+}
+
+/* ---------------------------------------------------------------------
+   12. DIVIDER ROW PATTERN
+   The core of "no card soup": lists use dividers, not individual cards.
+   --------------------------------------------------------------------- */
+.row-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.row-item {
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-5) 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+
+.row-item-main { min-width: 0; flex: 1; }
+
+.row-item-main h3 { margin: var(--space-2) 0 var(--space-1); }
+
+.row-item-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  padding-top: var(--space-2); /* align with first line of text */
+}
+
+/* Task-list (backwards-compatible alias) */
+.task-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.task-row {
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-5) 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+
+.task-row > div { min-width: 0; flex: 1; }
+.task-row h3 { margin: var(--space-2) 0 0; }
+
+/* Plan task list (GoalPlanScreen) */
+.plan-task-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.plan-task {
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-5) 0;
+}
+
+.plan-task h3 { margin: var(--space-2) 0 var(--space-1); }
+.plan-task p  { white-space: pre-wrap; overflow-wrap: anywhere; }
+.plan-empty   { padding: var(--space-8) 0; color: var(--text-muted); font-size: 0.9rem; }
+
+/* ---------------------------------------------------------------------
+   13. ACTIVE TASK PANEL (Today's current task)
+   ONE bordered surface per view — the elevated current task.
+   --------------------------------------------------------------------- */
+.active-task-panel {
+  background: var(--surface-tint);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  margin: var(--space-4) 0 var(--space-8);
+}
+
+.active-task-panel .task-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.active-task-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-micro);
+  background: var(--accent);
+  color: var(--accent-fg);
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.active-task-panel h3 {
+  font-family: var(--font-serif);
+  font-size: clamp(1.3rem, 2.5vw, 1.75rem);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  margin: var(--space-2) 0 var(--space-2);
+}
+
+.active-task-panel .task-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: var(--space-5);
+}
+
+.active-task-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-5);
+}
+
+/* ---------------------------------------------------------------------
+   14. SURFACE PANEL (forms, editors, bordered context blocks)
+   Use sparingly — when content genuinely needs containment.
+   --------------------------------------------------------------------- */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+}
+
+/* Legacy: .card aliased to panel behavior but restrained use */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+}
+
+/* ---------------------------------------------------------------------
+   15. INPUT ROW (label + input + button in a line)
+   --------------------------------------------------------------------- */
+.input-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.input-row input { flex: 1; }
+.input-row button { flex-shrink: 0; margin-top: 0; }
+
+/* Capture form — unboxed label + input row */
+.capture {
+  margin-bottom: var(--space-6);
+  background: none;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.capture label { margin-top: 0; }
+
+/* Override card when used inside capture */
+form.capture.card {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+/* ---------------------------------------------------------------------
+   16. GOAL GRID (now a single-column list — no grid card layout)
+   --------------------------------------------------------------------- */
+.goal-grid {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Goal card: row item, not a visual card */
+.goal-card {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.goal-card h3 { margin: var(--space-2) 0 var(--space-1); }
+.goal-card > .text-button { margin-top: var(--space-3); }
+
+/* ---------------------------------------------------------------------
+   17. PLAN SECTIONS (milestones & tasks within GoalPlan)
+   --------------------------------------------------------------------- */
+.plan-section {
+  margin: var(--space-8) 0;
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border);
+}
+
+.plan-section .section-heading { margin: 0 0 var(--space-4); }
+
+/* Milestone list (ordered) */
+.milestone-list {
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+
+.milestone-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.milestone-row span {
+  overflow-wrap: anywhere;
+  min-width: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* Commitment editor — ONE bordered panel */
+.commitment-editor {
+  margin: var(--space-5) 0;
+}
+
+/* ---------------------------------------------------------------------
+   18. EMPTY STATES
+   --------------------------------------------------------------------- */
+.empty-state {
+  padding: var(--space-16) var(--space-6);
+  text-align: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+}
+
+.empty-state p { margin-top: var(--space-3); color: var(--text-muted); }
+.empty-mark { display: inline-block; font-size: 1.5rem; color: var(--text-micro); margin-bottom: var(--space-4); }
+
+/* ---------------------------------------------------------------------
+   19. LOAD MORE
+   --------------------------------------------------------------------- */
+.load-more { margin-top: var(--space-6); }
+
+/* ---------------------------------------------------------------------
+   20. ACTIONS ROW
+   --------------------------------------------------------------------- */
+.actions { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-4); align-items: center; }
+
+/* ---------------------------------------------------------------------
+   21. DEPENDENCY PANEL
+   --------------------------------------------------------------------- */
+.dependency-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  margin-top: var(--space-4);
+}
+
+.dependency-panel h4 { margin: 0 0 var(--space-2); }
+
+.dependency-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+
+.dependency-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.dependency-list li > div { min-width: 0; overflow-wrap: anywhere; font-size: 0.875rem; }
+.dependency-list .badge { margin-left: var(--space-2); }
 .dependency-list button { flex-shrink: 0; }
-@media (max-width: 500px) { .dependency-list li { align-items: start; flex-direction: column; } }
+
+/* ---------------------------------------------------------------------
+   22. CATEGORY SWATCH
+   --------------------------------------------------------------------- */
+.category-swatch {
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  margin-right: var(--space-2);
+  border: 1px solid rgba(0,0,0,0.12);
+  flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------------------
+   23. AUTH LAYOUT
+   --------------------------------------------------------------------- */
+.auth-layout {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: var(--space-16);
+  align-items: center;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--space-12);
+}
+
+.intro h1 { font-size: clamp(2.8rem, 5.5vw, 4.5rem); margin: var(--space-6) 0; }
+.intro > p:last-child { color: var(--text-muted); }
+
+.auth-card h2 { margin: var(--space-4) 0; font-size: 1.25rem; }
+.auth-card form > button { width: 100%; margin: var(--space-6) 0 var(--space-3); height: 2.5rem; font-size: 0.9rem; }
+.auth-card > .text-button { font-size: 0.8rem; height: auto; padding: var(--space-2) 0; }
+
+/* ---------------------------------------------------------------------
+   24. LOADING STATE
+   --------------------------------------------------------------------- */
+.loading-page {
+  padding: var(--space-16);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.loading-page button { margin: var(--space-4) var(--space-2); }
+
+/* ---------------------------------------------------------------------
+   25. BREADCRUMB / BACK NAV
+   --------------------------------------------------------------------- */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: var(--space-6);
+}
+
+.breadcrumb button {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  border: none;
+  background: none;
+  padding: 0;
+  height: auto;
+  font-weight: 500;
+}
+
+.breadcrumb button:hover:not(:disabled) {
+  background: none;
+  color: var(--text-primary);
+}
+
+.breadcrumb .sep { color: var(--text-micro); }
+
+/* ---------------------------------------------------------------------
+   26. RESPONSIVE
+   --------------------------------------------------------------------- */
 @media (max-width: 700px) {
-  .auth-layout { grid-template-columns: 1fr; gap: 2rem; padding: 2rem 1.25rem; }
-  .intro h1 { font-size: 3rem; margin: 1rem 0; }
-  .app-header { padding: 1rem 1.25rem; }
-  .brand span, .account span { display: none; }
-  nav { padding: .8rem 1.25rem; }
-  .workspace { padding: 1.5rem 1.25rem 3rem; }
-  .goal-grid { grid-template-columns: 1fr; }
+  .auth-layout {
+    grid-template-columns: 1fr;
+    gap: var(--space-8);
+    padding: var(--space-8) var(--space-5);
+  }
+  .intro h1 { font-size: 2.8rem; margin: var(--space-4) 0; }
+
+  .app-header { padding: 0 var(--space-5); gap: var(--space-5); }
+  .account span { display: none; }
+  .app-nav button { padding: 0 var(--space-3); font-size: 0.8rem; }
+
+  .workspace { padding: var(--space-6) var(--space-5) var(--space-12); }
+  .workspace-with-panel {
+    grid-template-columns: 1fr;
+    padding: var(--space-6) var(--space-5) var(--space-12);
+  }
+
+  .goal-grid { gap: 0; }
   .section-heading > .hint { display: none; }
   .input-row { flex-direction: column; }
-  .card { padding: 1.25rem; }
+  .card { padding: var(--space-5); }
+  .active-task-panel { padding: var(--space-5); }
+  .active-task-actions { flex-direction: column; align-items: flex-start; }
+
+  h1 { font-size: clamp(1.8rem, 8vw, 2.4rem); }
+}
+
+@media (max-width: 500px) {
+  .dependency-list li { align-items: flex-start; flex-direction: column; }
+  .task-row { flex-direction: column; gap: var(--space-3); }
+  .task-row .row-item-actions { align-self: flex-start; }
 }
