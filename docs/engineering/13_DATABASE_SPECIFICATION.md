@@ -89,3 +89,20 @@ no JVM/session default timezone interpretation. Existing categories receive null
 V1–V8 remain unchanged. V9 does not rename/drop/convert tasks or rewrite events; the legacy
 Event.task_id FK remains intact. No cascade deletion is added. MySQL DDL may implicitly commit;
 upgrade verification must not assume transactional rollback of schema operations.
+
+## Chunk 1 Physical Mapping — V12
+
+V12 adds `scheduling_config`, keyed by owner FK `user_id`, with nullable IANA timezone
+storage and the per-user workable fraction, buffer, continuous-work and break values.
+`working_hours_config` stores owner FK, ISO weekday 1–7, local start/end TIME and
+`working`/`sleep`/`protected` kind, with a generated id and duplicate-window constraint.
+Application overlap and timezone interpretation follow `04` §6 / approved DEC-0016.
+Weekly configuration is replaced atomically under the owner row lock. Existing V8 fixed reservations and V11 scheduled
+blocks remain the only absolute reservation storage. No historical migration changes,
+data conversions, cascades or duplicate scheduled-block model are introduced.
+
+Configuration changes serialize on the owner users row and atomically append
+`capacity.updated` or `working_hours.updated` (actor `user`, entity type `scheduling_config`,
+entity id = user id, before/after payload) to the existing log. No-op writes emit no event.
+Candidate arithmetic is read-only. Schema checks constrain fraction/ranges/kind/weekday and
+distinct window endpoints. Weekly cross-row overlap validation remains in the application.

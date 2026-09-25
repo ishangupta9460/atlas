@@ -87,6 +87,38 @@ spec.
   domain state changes, default recalculation, cancellation, or scheduling behavior.
 - RELATED: MEM-004/SCRUM-96, DOM-005/SCRUM-27, DOM-007/SCRUM-29, DOM-003/SCRUM-25.
 
+### DEC-0016 — Chunk 1 timezone and availability policy
+
+- DATE: 2026-09-25; TYPE: Product; STATUS: Approved.
+- CONTEXT: The Chunk 1 request requires correct DST behavior. `03` SCH-014 and
+  `16` §9 explicitly identify its expected behavior as unspecified. `19` and the
+  review changelog do not resolve that later reconstruction gap.
+- DECISION: One saved IANA scheduling timezone per user; no available working time
+  until configured; overnight weekly windows belong to their starting weekday.
+  DST gaps clip the affected interval; repeated local times include both occurrences
+  (only the configured local-clock minutes, without filling unconfigured minutes
+  between occurrences). A timezone edit affects subsequent
+  calculations and does not move existing absolute UTC reservations.
+- AUTHORITY: User explicitly approved these timezone/DST rules and instructed
+  continuation from the existing Chunk 1 checkpoint on 2026-09-25. Owning rules
+  recorded in `04` §6; previous gap notes in `03` and `16` updated by reference.
+- IMPLEMENTATION: Pure UTC interval subtraction and candidate ranges;
+  per-user capacity policy using the `04` §4 baseline (70%, 10-minute buffers,
+  50/10 work/break defaults); JDBC persistence matching V11; V12 additive schema;
+  authenticated working-hours/capacity configuration and atomic audit using the
+  existing log; read-only repeatable-read candidate/capacity query.
+- IMPLEMENTATION DETAILS: Workable fraction may be configured from 0 to 1.
+  Candidates describe earliest/latest valid starts, with no ranking or arbitrary
+  sampling grid. Capacity is the minimum of remaining workable budget and physical
+  deliverable free time; buffers are not charged a second time against the 70%.
+  Existing blocks and fixed commitments receive the configured inter-block buffer.
+  Same-kind weekly overlaps are rejected; cross-kind protection takes precedence.
+  Minute-resolution weekly configuration is bounded to 224 entries; queries to 31
+  elapsed days, with explicit UTC-offset timestamps and no implicit current time.
+- RELATED: SCH-001, SCH-013, SCH-014. SCH-012 dependency applies to full pipeline
+  determinism later; this batch implements foundation determinism only, per the
+  user's explicit scope. No SCH-002+ implementation is authorized here.
+
 ## Entry Format
 
 ```

@@ -26,7 +26,7 @@
 **What this category must specifically verify [STRONGLY INFERRED, extending `04` §2.4's stated requirement to its logical test cases]:**
 - No randomness anywhere in Stage 0–8 evaluation, including the tie-breaking cascade's final "earliest-created item wins" rule (`04` §2.3 rule 5) — a genuinely deterministic tiebreak, not an arbitrary one that happens to look stable.
 - No embedded AI call inside Stage 0–8 evaluation (`04` §2.4's own wording) — a test that mocks the AI provider to fail/hang and asserts Stage 0–8 still completes and produces the same result as when AI succeeds, since the AI-classification timing race (`02` §1.4, `04` §2.2) means `is_hard_consequence` may legitimately be `false` at evaluation time regardless of AI availability.
-- Timezone-aware slot math correctness (DST transitions, cross-timezone travel) — flagged as under-specified in `03` §3 (`SCH-014`'s status note); this category owns verifying whatever behavior is eventually specified, but the behavior itself is a genuine gap this document does not resolve (see §9 below).
+- Timezone-aware slot math correctness — verify the approved `04` §6 / DEC-0016 rules: DST clipping, both repeated occurrences, overnight weekday ownership, no availability before configuration, and timezone edits preserving existing UTC blocks. Automatic travel detection is not part of this contract.
 - Cycle-detection termination on the dependency-chain lookahead (`04` §2.5) — a cyclic dependency graph must not cause Stage 5 evaluation to loop; this reuses the cycle-detection machinery `04` §2.5 already cites from the original Sprint 4 backlog item (`03` §2).
 
 ## 5. State-Machine Tests
@@ -61,5 +61,5 @@
 
 ## 9. Genuine Gaps / Requires Product Decision
 
-1. **Timezone/DST edge-case behavior** is named as a required test target (`SCH-014`'s acceptance criteria: "correct timezone-aware slot math") but the actual *behavior* under DST transitions or cross-timezone travel is not specified anywhere in `04` or elsewhere in the package — this document can state that it must be tested, but cannot specify the expected behavior it should assert, since that behavior doesn't yet exist in written form. **[STRONGLY INFERRED gap, not invented behavior]** — flagged here rather than guessed at.
+1. **Timezone/DST edge-case behavior — resolved:** product-owner approval DEC-0016 on 2026-09-25 establishes `04` §6 as the owning behavior. Test that contract; do not infer automatic travel detection or relocation of historical blocks.
 2. **No specific test framework is committed to anywhere in the package** (unlike the backend/frontend/CI stack in `01` §5, which Master Spec §2 Sprint 0 explicitly commits to). This is deliberate per the review brief's instruction not to invent one — choosing a framework (e.g., JUnit for the Spring Boot backend, a property-based testing library for §4's determinism suite) is an implementation decision consistent with the already-committed Spring Boot/Java 17 stack, not a product decision requiring this document to specify further.

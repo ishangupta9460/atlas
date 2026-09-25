@@ -74,3 +74,35 @@ Operates only on slots that survived §2. Scoring dimensions (Master Spec §1.12
 ## 5. Genuine Gaps / Requires Product Decision
 
 *(All three items previously listed here — Stage 2 flag mechanism, dependency lookahead depth, capacity granularity — are resolved. See §2.2, §2.5, and §4 above respectively. Per-category capacity remains explicitly deferred past v1 by decision, not by default-without-review: single per-user figure confirmed as the v1 model.)*
+
+## 6. Scheduling Foundation — Approved Timezone Policy (DEC-0016)
+
+The product owner approved the following on 2026-09-25 for SCH-001/013/014:
+- One saved IANA scheduling timezone per user. No available hours until explicitly configured.
+- Weekly overnight windows belong to their starting ISO weekday (Monday = 1).
+- DST gaps clip affected intervals: nonexistent local minutes contribute no available or
+  protected time. Repeated local minutes include both occurrences. For example, a fall-back
+  01:15–01:30 window produces two 15-minute intervals, not the unconfigured minutes between them.
+- A timezone change affects future calculations only; persisted UTC blocks never move as a
+  side effect. No automatic travel detection or historical timezone inference is introduced.
+- Sleep and other protected windows are explicit and override intersecting working windows.
+
+Implementation contract: intervals are half-open, ordered by UTC start/end. Same-kind weekly
+overlaps are rejected (including Sunday overnight into Monday); adjacent intervals are allowed.
+Cross-kind protected overlaps are unioned before subtraction. An empty working list means no
+availability. Fixed commitments and existing scheduled/active/completed blocks exclude time;
+superseded block history does not. No schedule mutation, task ranking or Problem B scoring occurs.
+
+Candidate queries return maximal fitting start ranges with requested deliverable work and the
+elapsed duration including internal breaks. They represent physical options, not authorization
+to consume more than the separately returned daily capacity. Later placement must enforce that
+budget. No arbitrary slot grid or current-clock input is used.
+
+For each affected local day, raw free time is working time minus protected/fixed time. The
+workable budget is that amount times the per-user fraction, rounded down to whole seconds.
+Existing blocks consume deliverable work from that budget; 50/10 defaults preserve the block's
+break origin when crossing midnight. Inter-block buffers (default 10 minutes around reservations)
+consume the reserved fraction, not an additional percentage deduction. Remaining deliverable work
+is capped by both the remaining daily budget and physically available time after buffers/breaks.
+For a partial-day query, the budget still accounts for the full day while the physical cap uses
+the queried portion. v1 uses one configurable per-user fraction; learning remains a later chunk.
