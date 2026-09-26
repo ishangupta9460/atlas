@@ -378,3 +378,88 @@ parameters return `400 VALIDATION_ERROR`. No event or domain writes occur.
 ## 13. Genuine Gaps / Requires Product Decision
 
 *(Resolved — see §1 above: mandatory `Idempotency-Key` header on scheduling-mutation endpoints, deduplicated server-side.)*
+
+## 14. Scheduling Foundation
+
+Chunk 1 adds authenticated `GET /users/me/capacity` and `PUT /users/me/capacity`.
+Identity comes exclusively from the JWT. PUT replaces the complete policy and returns
+200 with the saved policy; GET returns the saved policy or the cold-start defaults:
+
+```json
+{"workableFraction":0.7,"bufferMinutes":10,"continuousWorkMinutes":50,"breakMinutes":10}
+```
+
+`workableFraction` is a decimal from 0 through 1, at most four decimal places;
+`bufferMinutes` is an integer 0–60; `continuousWorkMinutes` is 1–240;
+`breakMinutes` is 1–60. Invalid/missing values or malformed JSON return 400 with
+`error_code: VALIDATION_ERROR`; missing authentication returns 401. Identical PUT
+requests make no further mutation or audit entry. This configuration replacement
+does not mutate Scheduled Blocks and does not require a scheduling Idempotency-Key.
+Meaningful changes and their audit entry commit or roll back together.
+
+`GET /users/me/working-hours` returns `{configured, timezone, windows}`. Before setup,
+these are `false`, `null`, `[]`; reads do not create configuration. `PUT` atomically replaces
+the timezone and complete weekly window list; it returns the same response shape with
+`configured: true`. To clear availability, PUT an empty list while retaining a valid timezone.
+
+```json
+{"timezone":"Asia/Kolkata","windows":[
+  {"dayOfWeek":1,"startTime":"09:00","endTime":"17:00","kind":"working"},
+  {"dayOfWeek":1,"startTime":"23:00","endTime":"07:00","kind":"sleep"}
+]}
+```
+
+ISO weekday is 1–7. Times have minute precision; equal start/end is invalid; an earlier
+end denotes overnight. Kinds are `working`, `sleep`, `protected`. At most 224 windows;
+same-kind overlaps/duplicates, including week wrap, return 400. Working/protected intersections
+are valid and protection wins. Invalid IANA zone, missing fields and malformed JSON return the
+same validation shape above. Every route derives identity from the JWT; no caller-supplied
+owner selects a different user. Reordered identical windows are a no-op. Policy and availability
+writes serialize on the owner row; meaningful changes are audited atomically. Existing blocks
+remain untouched when configuration changes. DST semantics are owned by `04` §6 / DEC-0016.
+
+`GET /schedule/candidates?startTime=2026-09-25T00:00:00Z&endTime=2026-09-26T00:00:00Z&workMinutes=30`
+is authenticated and read-only. Times require explicit offsets, at most microsecond precision,
+and a positive horizon no longer than 31 elapsed days (supported UTC years 1001–9998).
+`workMinutes` is required, 1–1440 deliverable work minutes; elapsed duration includes breaks.
+Missing/malformed/unbounded input returns 400. Offset `+` must be URL encoded in query strings.
+
+Response: `{configured, timezone, startTime, endTime, policy, candidates, days}`.
+Each candidate is `{earliestStart, latestStart, availableEnd, workSeconds, elapsedSeconds}`;
+every start in the inclusive earliest/latest range fits physically, ending no later than
+`availableEnd`. Candidates are chronological ranges, not selected placements or ranked tasks.
+Each day is `{date, capacity}` with `rawFreeSeconds`, `workableSeconds`, `reservedSeconds`,
+`occupiedSeconds`, `occupiedWorkSeconds`, `bufferSeconds`, `remainingWorkSeconds` per `04` §6.
+Daily capacities are separate limits for later placement, not a promise all candidates can
+be used. With no configuration, timezone is null and candidates/days are empty; an explicitly
+empty configuration returns zero-capacity days. No events, blocks or server timestamps are
+created by querying. Configuration and reservations are read in one repeatable-read transaction.
+
+### Autonomous scheduling — Chunk 2 (DEC-0017)
+
+`POST /schedule/generate` requires JWT authentication and `Idempotency-Key`.
+Body: `{startTime, endTime, work: [{commitmentId, workMinutes}], instructedCommitmentId?}`.
+Times require explicit offsets and microsecond-or-coarser precision, span at most
+31 elapsed days, and use the scheduling foundation's UTC year bounds. `work` has
+at most 1000 distinct owned Commitment IDs, each with 1–1440 requested deliverable
+work minutes. This temporary duration input is not a persistent estimate.
+Omitted work receives no fabricated duration and is not placed. Empty work is valid.
+
+Returns 200 with `{placements: [{id, decision: {commitmentId, startTime, endTime,
+placementReason, slotScore, calibration}}], unplaced: [commitmentId], importantTies:
+[{selectedCommitmentId, otherCommitmentId, message}]}`. `slotScore` has the four
+normalized dimensions; calibration explicitly reports missing historical evidence.
+The instruction selects its feasible movable item before autonomous preference
+ranking; it cannot move Fixed work or bypass prerequisites/calendar/capacity.
+Ready work with incomplete prerequisites or an existing scheduled/active block is
+not placed. Existing reservations never move. Unplaced inputs are returned without
+mutating their work state. Important unresolved item ties are surfaced in the response.
+
+Identity comes only from authentication. Missing/foreign work yields the same 404;
+invalid input or missing/invalid replay key yields 400; key reuse for another payload
+or operation yields 409. Identical replay (including reordered work inputs) returns
+the stored response. The V11 execution_idempotency store is shared with execution.
+Owner serialization, commitment row locks, block inserts, `block.generated` atlas
+reason events and the response record share one transaction. Empty results also
+replay unchanged. An explicit planning window is authoritative, with no implicit
+clock adjustment; identical snapshots and inputs produce identical decisions.

@@ -93,7 +93,7 @@ For every Jira story, this document answers: what does it implement, which docum
 | `SCH-011` | Tie-breaking cascade | `04` §2.3 | SCH-002–010 | Fully specified — `04` §2.3. |
 | `SCH-012` | Problem B candidate-slot scoring | `04` §3 | SCH-011 | Fully specified — `04` §3. |
 | `SCH-013` | Capacity model | `04` §4 | SCH-001 | Fully specified — `04` §4. |
-| `SCH-014` | Determinism & timezone handling | `04` §2.4 | SCH-012 | Fully specified — `04` §2.4. Timezone-aware slot math itself (DST transitions, cross-timezone travel) is not detailed anywhere in `04` beyond "correct timezone-aware slot math" — flagged as a genuine gap in `04`, not fabricated here (see §8 below). |
+| `SCH-014` | Determinism & timezone handling | `04` sections 2.4, 6 | SCH-012 | Timezone/DST gap resolved by product-owner approval DEC-0016, recorded in `04` section 6. Chunk 1 covers foundation determinism and explicit timezone edits; full pipeline determinism remains dependent on SCH-012. |
 | `SCH-015` | Explainability (placement reason) | `04`, `10` §4 | SCH-011, EVT-002 | Fully specified — `04`, `10` §4. |
 
 ### Rescheduling/Recovery

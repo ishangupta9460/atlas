@@ -22,6 +22,30 @@ async function openPlan() {
   return user;
 }
 
+it("captures a goal task with only a title and offers the next readiness step", async () => {
+  enqueue({ roadmap: null }, { commitments: [], nextCursor: null }, [], { ...task, milestoneId: null, importance: "medium", flexibilityTier: "flexible" });
+  const user = await openPlan();
+  await user.click(screen.getByRole("button", { name: "Add a task" }));
+  await user.type(screen.getByLabelText("What will you do?"), task.title);
+  await user.keyboard("{Enter}");
+  expect(await screen.findByRole("button", { name: "Make ready →" })).toBeEnabled();
+  expect(JSON.parse(fetchMock.mock.calls.find(([path, options]) => path === "/commitments" && options.method === "POST")![1].body)).toEqual({ title: task.title, completionCriterion: null, goalId: 1, importance: "medium", flexibilityTier: "flexible" });
+});
+
+it("preserves choices when returning from optional details to quick capture", async () => {
+  enqueue({ roadmap: null }, { commitments: [], nextCursor: null }, [], task);
+  const user = await openPlan();
+  await user.click(screen.getByRole("button", { name: "Add a task" }));
+  await user.type(screen.getByLabelText("What will you do?"), task.title);
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  await user.selectOptions(screen.getByLabelText("How important is this task?"), "high");
+  await user.selectOptions(screen.getByLabelText("How flexible is its placement?"), "protected");
+  await user.click(screen.getByRole("button", { name: "Back" }));
+  await user.click(screen.getByRole("button", { name: "Capture task" }));
+  await screen.findByRole("button", { name: "Make ready →" });
+  expect(JSON.parse(fetchMock.mock.calls.find(([path, options]) => path === "/commitments" && options.method === "POST")![1].body)).toMatchObject({ importance: "high", flexibilityTier: "protected" });
+});
+
 it("creates a milestone and a draft task, then defines done and reopens the saved plan", async () => {
   enqueue({ roadmap: null }, { commitments: [], nextCursor: null }, [], { id: 2, milestones: [] }, milestone, task);
   const user = await openPlan();

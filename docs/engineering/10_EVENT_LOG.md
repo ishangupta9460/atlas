@@ -58,6 +58,13 @@ state. An unchanged patch emits no event. Existing Goal transition events are un
 
 ## 6. Genuine Gaps / Requires Product Decision
 
+Chunk 1 configuration audit uses the existing append-only log: `capacity.updated` and
+`working_hours.updated`, actor `user`, entity type `scheduling_config`, entity id = owner
+user id. Payloads carry before/after policy or weekly configuration; the first availability
+write has a null before snapshot. Writes serialize on the owner row and commit atomically
+with configuration. Identical replacements emit nothing. Candidate queries emit no events.
+These entries provide mutation audit; no undo or scheduling-decision semantics are added.
+
 None identified — this is a purely infrastructural document with no open product questions.
 
 ## DOM-003 Event Contract (DEC-0009)

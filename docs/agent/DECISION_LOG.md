@@ -87,6 +87,38 @@ spec.
   domain state changes, default recalculation, cancellation, or scheduling behavior.
 - RELATED: MEM-004/SCRUM-96, DOM-005/SCRUM-27, DOM-007/SCRUM-29, DOM-003/SCRUM-25.
 
+### DEC-0016 — Chunk 1 timezone and availability policy
+
+- DATE: 2026-09-25; TYPE: Product; STATUS: Approved.
+- CONTEXT: The Chunk 1 request requires correct DST behavior. `03` SCH-014 and
+  `16` §9 explicitly identify its expected behavior as unspecified. `19` and the
+  review changelog do not resolve that later reconstruction gap.
+- DECISION: One saved IANA scheduling timezone per user; no available working time
+  until configured; overnight weekly windows belong to their starting weekday.
+  DST gaps clip the affected interval; repeated local times include both occurrences
+  (only the configured local-clock minutes, without filling unconfigured minutes
+  between occurrences). A timezone edit affects subsequent
+  calculations and does not move existing absolute UTC reservations.
+- AUTHORITY: User explicitly approved these timezone/DST rules and instructed
+  continuation from the existing Chunk 1 checkpoint on 2026-09-25. Owning rules
+  recorded in `04` §6; previous gap notes in `03` and `16` updated by reference.
+- IMPLEMENTATION: Pure UTC interval subtraction and candidate ranges;
+  per-user capacity policy using the `04` §4 baseline (70%, 10-minute buffers,
+  50/10 work/break defaults); JDBC persistence matching V11; V12 additive schema;
+  authenticated working-hours/capacity configuration and atomic audit using the
+  existing log; read-only repeatable-read candidate/capacity query.
+- IMPLEMENTATION DETAILS: Workable fraction may be configured from 0 to 1.
+  Candidates describe earliest/latest valid starts, with no ranking or arbitrary
+  sampling grid. Capacity is the minimum of remaining workable budget and physical
+  deliverable free time; buffers are not charged a second time against the 70%.
+  Existing blocks and fixed commitments receive the configured inter-block buffer.
+  Same-kind weekly overlaps are rejected; cross-kind protection takes precedence.
+  Minute-resolution weekly configuration is bounded to 224 entries; queries to 31
+  elapsed days, with explicit UTC-offset timestamps and no implicit current time.
+- RELATED: SCH-001, SCH-013, SCH-014. SCH-012 dependency applies to full pipeline
+  determinism later; this batch implements foundation determinism only, per the
+  user's explicit scope. No SCH-002+ implementation is authorized here.
+
 ## Entry Format
 
 ```
@@ -357,51 +389,42 @@ REFERENCE: https://docs.spring.io/spring-boot/reference/features/logging.html
 
 ### DEC-0014
 ```
-DATE: 2026-09-21
+DATE: 2026-09-25
 TYPE: Product
-STATUS: Proposed
-DECISION: Clarify SCH-010 preference evidence and conflicting Stage 8 signals.
-CONTEXT: 04 section 2 defines time-of-day preference/minimizing switching only for
-    otherwise equivalent survivors. It does not define comparison when time-of-day
-    favors one survivor and continuity favors another, or missing evidence behavior.
-    08 section 3 requires contextual confirmation for saved preferences; 11 section 3
-    supplies learned fit to Problem B and historical probability for calibration only.
-    SCH-009 is only an evidence seam, not a selection path. No preference/slot context
-    producer or integrated survivor pipeline exists in current code.
-OPEN QUESTION: Define the Stage 8 evidence source and applicable confirmation,
-    time-of-day fit semantics, missing evidence, and conflicting continuity/preference
-    resolution. This must not reuse historical execution probability as ranking.
-IMPACT: SCH-010 blocked. No new comparator, arbitrary weights, preference persistence,
-    learned behavior, or earlier-stage pipeline is introduced in this wave.
+STATUS: Approved
+AUTHORITY: Explicit product-owner approval (Choice 3 — Continuity in Stage 8, Time-of-Day in Problem B).
+DECISION: Stage 8 evaluates Category Continuity only; Time-of-Day fit belongs exclusively to Problem B candidate-slot scoring.
+CHOSEN OPTION:
+  1. Stage 8 evaluates Category Continuity only.
+  2. Continuity is determined by matching the candidate's category_id against the relevant immediately preceding scheduled block/context on the timeline.
+  3. If continuity is tied (both match or neither matches) or unavailable (no preceding block), the candidates pass through to the normal tie-breaking cascade (04 §2.3).
+  4. Time-of-day preference is NOT used as a Stage 8 signal.
+  5. Time-of-day fit belongs exclusively to Problem B candidate-slot scoring (04 §3).
+  6. Later confirmed user preferences (08 §3, 11 §3) may feed Problem B slot scoring, but must not silently create a second Stage 8 preference ranking mechanism.
+WHY: Clean architectural separation between Problem A (deciding what gets time among equivalent survivors for a slot) and Problem B (scoring candidate slots across the week). Category continuity protects focus and minimizes context switching (01 §1.2 Rule 5) without entangling slot-scoring preferences into the Stage 0–8 hierarchy.
+IMPACT: Unblocks SCH-010 and Chunk 2 scheduling pipeline. Stage 8 implementation compares category_id against preceding block on timeline; falls through cleanly to 04 §2.3.
 RELATED JIRA: SCH-010
-RELATED DOCUMENTS: 04 sections 2/2.3/3; 08 section 3; 11 section 3; SCH-009 handoff
+RELATED DOCUMENTS: 04 sections 2/2.3/3; 08 section 3; 11 section 3
 ```
 
 ### DEC-0013
 ```
-DATE: 2026-09-21
+DATE: 2026-09-25
 TYPE: Product
-STATUS: Proposed
-DECISION: Clarify SCH-007 remaining-work measurement and Stage 5 tradeoffs.
-CONTEXT: 04 section 2 says prefer unblocking or near-completion; section 2.5 defines
-    bounded traversal (already implemented by DOM-007). Neither defines relative
-    preference when one candidate unblocks more work and another is nearer complete.
-    02/13 and Commitment have completion percentage but no estimated effort units.
-    DOM-007 handoff already flags remaining-effort units as unspecified. Percentage
-    remaining is not comparable effort across differently sized tasks. Section 2.3
-    also applies when an earlier tier cannot distinguish candidates: it permits
-    remaining-work tie resolution, but does not define its units or how Stage 5
-    first distinguishes competing dependency and near-completion advantages.
-OPEN QUESTION: Define remaining-work input/units, missing-input behavior, the
-    near-completion rule, and comparison against dependency-chain value (including
-    which downstream work states count). Do not introduce weights or thresholds
-    under implementation authority.
-IMPACT: SCH-007 ranking blocked. Safe partial fix distinguishes shared/repeated
-    dependencies from true cycles in existing bounded lookahead. Current production
-    scheduling code has only Stage 2/3/4 helpers and Stage 7 seam, no decision pipeline;
-    end-to-end Stage 0-5 scheduling assertions cannot truthfully be claimed.
+STATUS: Approved
+AUTHORITY: Explicit product-owner approval (Choice 1 — Unblocking First).
+DECISION: Stage 5 uses downstream unblocked task count as primary ordering signal, with completion percentage breaking ties.
+CHOSEN OPTION:
+  1. Downstream unblocked task count is the primary Stage 5 ordering signal.
+  2. Higher unblocked task count wins.
+  3. If downstream unblocked counts are tied (including both being 0), higher current_completion_pct wins (closer to 100%).
+  4. Completed and cancelled downstream items are excluded from the unblocked count (only non-completed, non-cancelled downstream dependents count).
+  5. Preserves the bounded dependency traversal already defined in code and spec (04 §2.5, DependencyLookahead bounded to max depth 8, max count 64).
+  6. In tie-breaking cascade 04 §2.3 Rule 1 ("Less remaining work wins"), remaining work is evaluated as higher current_completion_pct (i.e. fewer percentage points remaining).
+WHY: Maximizes project and milestone throughput by clearing bottlenecks on the critical path, while using stored current_completion_pct (02 §1.4, V9) as a deterministic measure of near-completion when unblocking values are identical. Avoids inventing ungrounded effort units or arbitrary weighting.
+IMPACT: Unblocks SCH-007 and Chunk 2 scheduling pipeline. Stage 5 comparator queries DependencyLookahead for downstream unblocked count; falls back to currentCompletionPct comparison.
 RELATED JIRA: SCH-007
-RELATED DOCUMENTS: 04 sections 2/2.3/2.5; 02 section 1.4; DOM-007 handoff
+RELATED DOCUMENTS: 04 sections 2/2.3/2.5; 02 section 1.4; DOM-007
 ```
 
 ### DEC-0012
@@ -637,3 +660,25 @@ OUT OF SCOPE: SCH-007 ranking, cancellation cascade, work-state changes, estimat
 RELATED JIRA: DOM-007; SCH-007
 RELATED DOCUMENTS: 02 §1.4; 04 §2.5; 13; 01 §4; C1 in ATLAS_PARALLEL_WORK_PLAN.md
 ```
+
+### DEC-0017 — Chunk 2 temporary slot scoring and duration inputs
+
+- DATE: 2026-09-25; TYPE: Product; STATUS: Approved.
+- AUTHORITY: Explicit product-owner reply during Chunk 2 implementation.
+- DECISION: Four equal-weight [0,1] Problem B dimensions, higher is better.
+  Missing confirmed time-of-day/energy evidence contributes zero; no inferred
+  preference. Continuity is 1 for a matching preceding category, otherwise 0.
+  For leftover usable gap g and requested work seconds w, penalty is zero if
+  g >= w, otherwise g/w; fragmentation score is 1 - penalty.
+  Planning window and per-item work minutes are explicit request-scoped inputs;
+  no estimated duration is fabricated or persisted. Later replacement requires
+  a new recorded product decision. Stage 8 remains category-only.
+- IMPLEMENTATION: Each maximal fitting free range supplies boundary placements;
+  calendar/capacity boundary starts are also considered. Scoring leftover means
+  total usable seconds left in that free range after the elapsed block duration.
+  New placements never move existing blocks: their movement cost is zero;
+  flexibility resistance orders which competing work is less disruptive to defer.
+  Equal item creation timestamps use numeric database ID as a stable final
+  technical discriminator. Equal slot scores for the same item use UTC start/end
+  after the item tie cascade (which cannot distinguish an item from itself).
+- RELATED: SCH-008, SCH-011, SCH-012; 04 sections 2–3; Chunk 2 request.

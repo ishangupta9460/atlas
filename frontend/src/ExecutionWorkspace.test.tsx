@@ -24,6 +24,16 @@ beforeEach(() => {
     if (path === "/goals/10/roadmap") return response({ roadmap: { id: 1, milestones: [{ id: 1, title: "Foundation", order: 1 }] } });
     if (path === "/goals/10/commitments") return response({ commitments: [task, { ...task, id: 2, title: "Write the next chapter" }], nextCursor: null });
     if (path === "/categories") return response([]);
+    if (path === "/commitments" && options.method === "POST") {
+      const body = JSON.parse(String(options.body));
+      const captured = { ...task, ...body, id: 3, goalId: null, goalTitle: null, workState: body.completionCriterion ? "ready" : "draft" };
+      data.tasks.push(captured); return response(captured, 201);
+    }
+    if (path === "/commitments/3" && options.method === "PATCH") {
+      const body = JSON.parse(String(options.body));
+      data.tasks = data.tasks.map(t => t.id === 3 ? { ...t, ...body, workState: "ready" } : t);
+      return response(data.tasks.find(t => t.id === 3));
+    }
     if (path === "/schedule/blocks") {
       const body = JSON.parse(String(options.body));
       const b = { id: 1, commitmentId: body.commitmentId, startTime: body.startTime, endTime: body.endTime, state: "scheduled", placementReason: "You chose this work window.", sessionState: null, actualStart: null, runningSince: null, activeMillis: 0 };
@@ -107,6 +117,71 @@ it("saves partial work without pretending the task is complete", async () => {
   await user.click(screen.getByRole("button", { name: "Save and finish" }));
   await screen.findByText("Session saved. The remaining work is ready for another window.");
   expect(data.tasks[0].workState).toBe("ready"); expect(data.tasks[0].completionPct).toBe(40);
+  const closure = screen.getByRole("region", { name: "Session saved" });
+  expect(within(closure).getByText("Form is ready; validation remains.")).toBeInTheDocument();
+  await user.click(within(closure).getByRole("button", { name: "Plan remaining work" }));
+  expect(within(screen.getByRole("region", { name: "Task brief" })).getByRole("button", { name: "Set work window" })).toBeEnabled();
+});
+
+it("captures only a title, keeps the draft discoverable, makes it ready and opens the chosen future day", async () => {
+  data.blocks = [];
+  const user = userEvent.setup(); render(<App />);
+  await user.click(await screen.findByRole("button", { name: "Add a task" }));
+  await user.type(screen.getByLabelText("What needs doing?"), "Review the chapter");
+  await user.click(screen.getByRole("button", { name: "Add task" }));
+  let brief = await screen.findByRole("region", { name: "Task brief" });
+  expect(data.tasks.find(t => t.id === 3)?.workState).toBe("draft");
+  expect(within(brief).queryByRole("button", { name: "Set work window" })).not.toBeInTheDocument();
+  await user.click(within(brief).getByRole("button", { name: "Close" }));
+  await user.click(screen.getByText("Captured · 1 to make ready"));
+  await user.click(screen.getByRole("button", { name: "Make ready" }));
+  brief = screen.getByRole("region", { name: "Task brief" });
+  await user.type(within(brief).getByLabelText("What will done look like?"), "Every section reviewed");
+  await user.click(within(brief).getByRole("button", { name: "Make ready → Schedule" }));
+  await screen.findByRole("button", { name: "Set work window" });
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(10, 0, 0, 0);
+  const local = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}T10:00`;
+  // datetime-local isn't supported by userEvent.type in jsdom.
+  const { fireEvent } = await import("@testing-library/react");
+  fireEvent.change(screen.getByLabelText(/Start time/), { target: { value: local } });
+  await user.click(screen.getByRole("button", { name: "Set work window" }));
+  const timeline = await screen.findByRole("region", { name: "Schedule timeline" });
+  expect(within(timeline).getByRole("button", { name: tomorrow.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) })).toHaveAttribute("aria-pressed", "true");
+  await user.click(screen.getByRole("button", { name: "Refresh" }));
+  const refreshed = await screen.findByRole("region", { name: "Schedule timeline" });
+  expect(within(refreshed).getByRole("button", { name: tomorrow.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) })).toHaveAttribute("aria-pressed", "true");
+  await user.click(within(screen.getByRole("list", { name: "Recorded windows" })).getByRole("button", { name: "Review the chapter" }));
+  expect(screen.getByRole("region", { name: "Task brief" })).toHaveTextContent("Every section reviewed");
+  expect(calls.find(c => c.path === "/schedule/blocks")?.options.headers).toHaveProperty("Idempotency-Key");
+});
+
+it("keeps a future window in Next and describes the fixed commitment happening now", async () => {
+  const now = new Date(); now.setHours(10, 0, 0, 0); data.serverTime = now.toISOString();
+  data.blocks[0].startTime = new Date(now.getTime() + 3600000).toISOString();
+  data.blocks[0].endTime = new Date(now.getTime() + 5400000).toISOString();
+  data.fixed = [{ id: 9, title: "Team catch-up", startTime: new Date(now.getTime() - 600000).toISOString(), endTime: new Date(now.getTime() + 600000).toISOString() }];
+  render(<App />);
+  expect(await screen.findByRole("heading", { name: "Team catch-up" })).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "Current task" })).not.toBeInTheDocument();
+  expect(within(screen.getByRole("region", { name: "Next" })).getByText(task.title!)).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Your day at a glance" })).toHaveTextContent("Now");
+});
+
+it("shows overlapping fixed and work windows in separate timeline lanes and opens the real task", async () => {
+  const now = new Date(); now.setHours(10, 0, 0, 0); data.serverTime = now.toISOString();
+  data.blocks[0].startTime = new Date(now.getTime() - 1800000).toISOString();
+  data.blocks[0].endTime = new Date(now.getTime() + 1800000).toISOString();
+  data.fixed = [{ id: 9, title: "Team catch-up", startTime: data.blocks[0].startTime, endTime: data.blocks[0].endTime }];
+  const user = userEvent.setup(); render(<App />);
+  await user.click(await screen.findByRole("button", { name: "Schedule" }));
+  const windows = await screen.findByRole("list", { name: "Recorded windows" });
+  const entries = within(windows).getAllByRole("listitem");
+  expect(entries).toHaveLength(2);
+  expect(entries[0].style.left).not.toBe(entries[1].style.left);
+  expect(within(windows).getByText("Fixed · now")).toBeInTheDocument();
+  expect(within(windows).getByText(/Ready now/)).toBeInTheDocument();
+  await user.click(within(windows).getByRole("button", { name: task.title! }));
+  expect(screen.getByRole("region", { name: "Task brief" })).toHaveTextContent(task.completionCriterion!);
 });
 
 it("keeps the queue short and exposes context and later work on demand", async () => {

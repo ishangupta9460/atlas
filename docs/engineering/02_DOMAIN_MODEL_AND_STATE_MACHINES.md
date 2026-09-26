@@ -101,6 +101,16 @@ No stored typed-roadmap-node-origin field is required in this increment.
 
 ---
 
+### 1.14 Scheduling Configuration (Chunk 1, DEC-0016)
+
+User-owned configuration consists of one optional IANA scheduling timezone and a weekly
+list of windows (starting ISO weekday, local start/end time, kind: working/sleep/protected),
+plus one per-user workable fraction, buffer minutes, continuous-work minutes and break minutes.
+It does not create another task/calendar/block model. Defaults, interval interpretation and
+capacity semantics are owned by `04` §4/§6. Physical mapping is in `13`, API in `12` §14.
+Direct user replacement is atomic and audited; identical replacements are no-ops.
+Configuration does not transition or relocate existing Commitments or Scheduled Blocks.
+
 ## 2. State Machines
 
 ### 2.1 Goal — Lifecycle

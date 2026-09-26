@@ -6,6 +6,9 @@ import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
 public interface CommitmentRepository extends JpaRepository<Commitment, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from Commitment c where c.userId=:owner order by c.id")
+    java.util.List<Commitment> lockAllOwned(@Param("owner") Long owner);
     @Query("select c from Commitment c where c.userId=:owner and c.id<:cursor " +
            "and (:excluded is null or c.id<>:excluded) " +
            "and locate(lower(:search), lower(coalesce(c.title, ''))) > 0 order by c.id desc")
