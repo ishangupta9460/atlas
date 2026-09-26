@@ -19,13 +19,15 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class ExecutionService {
     private final JdbcTemplate db;
+    private final ExecutionIdempotency idempotency;
     private final CommitmentRepository commitments;
     private final CommitmentService domain;
     private final CommitmentDependencyRepository dependencies;
     private final EventRepository events;
     private final ObjectMapper mapper = new ObjectMapper();
     public ExecutionService(JdbcTemplate db, CommitmentRepository commitments, CommitmentService domain,
-                            CommitmentDependencyRepository dependencies, EventRepository events) {
+                            CommitmentDependencyRepository dependencies, EventRepository events, ExecutionIdempotency idempotency) {
+        this.idempotency=idempotency;
         this.db=db; this.commitments=commitments; this.domain=domain; this.dependencies=dependencies; this.events=events;
     }
     public record Work(Long id, String title, String completionCriterion, String description, String workState,
@@ -169,16 +171,10 @@ public class ExecutionService {
     }
     private void lock(Long owner) { if(dependencies.lockOwner(owner)==null) throw ExecutionException.missing(); }
     private String replay(Long owner,String key,String fingerprint) {
-        if(key==null || !key.matches("[A-Za-z0-9_-]{1,100}")) throw new ExecutionException(400,"A valid Idempotency-Key is required.");
-        var rows=db.queryForList("SELECT fingerprint,response_json FROM execution_idempotency WHERE user_id=? AND request_key=?",owner,key);
-        if(rows.isEmpty()) return null;
-        if(!rows.get(0).get("fingerprint").equals(fingerprint)) throw ExecutionException.conflict("This request key was already used for another action.");
-        return (String) rows.get(0).get("response_json");
+        return idempotency.replay(owner,key,fingerprint);
     }
     private String save(Long owner,String key,String fingerprint,Block b) {
-        String json=mapper.writeValueAsString(b);
-        db.update("INSERT INTO execution_idempotency(user_id,request_key,fingerprint,response_json) VALUES(?,?,?,?)",owner,key,fingerprint,json);
-        return json;
+        return idempotency.save(owner,key,fingerprint,mapper.writeValueAsString(b));
     }
     private void event(Long id,String type,Map<String,Object> payload,String reason) {
         events.appendAndFlush(Event.forEntity("scheduled_block",id,type,"user",reason,mapper.writeValueAsString(payload)));

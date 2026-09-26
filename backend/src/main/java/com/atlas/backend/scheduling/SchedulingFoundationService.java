@@ -11,13 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class SchedulingFoundationService {
     private final SchedulingConfigRepository repository;
     private final WeeklyAvailability availability;
-    private final CandidateSlotGenerator generator;
-    private final CapacityCalculator calculator;
 
-    public SchedulingFoundationService(SchedulingConfigRepository repository, WeeklyAvailability availability,
-                                       CandidateSlotGenerator generator, CapacityCalculator calculator) {
+    public SchedulingFoundationService(SchedulingConfigRepository repository, WeeklyAvailability availability) {
         this.repository = repository; this.availability = availability;
-        this.generator = generator; this.calculator = calculator;
     }
 
     public record DayCapacity(LocalDate date, CapacityCalculator.Capacity capacity) {}
@@ -34,50 +30,68 @@ public class SchedulingFoundationService {
                 || start.getNano() % 1000 != 0 || end.getNano() % 1000 != 0
                 || workMinutes < 1 || workMinutes > 1440)
             throw new IllegalArgumentException("Choose a planning window of at most 31 days with microsecond precision and 1–1440 work minutes");
-        var bounds = new TimeInterval(start, end);
-        var policy = repository.capacity(owner).orElseGet(CapacityCalculator.Policy::defaults);
-        var configured = repository.workingHours(owner);
-        if (configured.isEmpty()) return new Foundation(false, null, start, end, policy, List.of(), List.of());
-        var hours = configured.get();
-        ZoneId zone = ZoneId.of(hours.timezone());
-        LocalDate first = start.atZone(zone).toLocalDate(), last = end.minusNanos(1).atZone(zone).toLocalDate();
-        Instant dayStart = first.atStartOfDay(zone).toInstant(), dayEnd = last.plusDays(1).atStartOfDay(zone).toInstant();
-        long buffer = policy.bufferMinutes() * 60L;
-        // Load once for the full affected local days, including buffer influence from outside the horizon.
-        var loadBounds = new TimeInterval(dayStart.minusSeconds(buffer), dayEnd.plusSeconds(buffer));
-        var fixed = repository.fixed(owner, loadBounds);
-        var blocks = repository.blocks(owner, loadBounds);
-        var expanded = availability.expand(hours, first, last);
-        var unavailable = new ArrayList<>(expanded.protectedTime());
-        unavailable.addAll(fixed);
-        var usable = TimeInterval.subtract(expanded.working(), unavailable);
-        var free = TimeInterval.subtract(usable, blocks);
-        var bufferedBusy = new ArrayList<TimeInterval>();
-        for (var interval : fixed) bufferedBusy.add(pad(interval, buffer));
-        for (var interval : blocks) bufferedBusy.add(pad(interval, buffer));
-        var bufferedFree = TimeInterval.subtract(usable, bufferedBusy);
-        var candidates = generator.generate(bufferedFree, List.of(), bounds, workMinutes * 60L, policy);
-        var days = new ArrayList<DayCapacity>();
-        for (LocalDate date = first; !date.isAfter(last); date = date.plusDays(1)) {
-            Instant a = date.atStartOfDay(zone).toInstant(), b = date.plusDays(1).atStartOfDay(zone).toInstant();
-            if (!b.isAfter(a)) continue; // A timezone may skip an entire civil day.
-            var day = new TimeInterval(a, b);
-            var dailyUsable = TimeInterval.clip(usable, day);
-            var dailyFree = TimeInterval.clip(free, day);
-            var dailyBuffered = TimeInterval.clip(bufferedFree, day);
-            var capacity = calculator.calculate(dailyUsable, blocks, dailyFree, dailyBuffered, policy);
-            // The daily budget accounts for the whole day; a narrow query cannot restore occupied capacity.
-            long queryPhysical = TimeInterval.clip(dailyBuffered, bounds).stream()
-                    .mapToLong(i -> calculator.deliverableSeconds(i.seconds(), policy)).sum();
-            capacity = new CapacityCalculator.Capacity(capacity.rawFreeSeconds(), capacity.workableSeconds(),
-                    capacity.reservedSeconds(), capacity.occupiedSeconds(), capacity.occupiedWorkSeconds(),
-                    capacity.bufferSeconds(), Math.min(capacity.remainingWorkSeconds(), queryPhysical));
-            days.add(new DayCapacity(date, capacity));
-        }
-        return new Foundation(true, hours.timezone(), start, end, policy, candidates, List.copyOf(days));
+        return snapshot(owner, start, end).calculate(workMinutes, List.of());
     }
 
-    private TimeInterval pad(TimeInterval interval, long seconds) {
+    public Snapshot snapshot(Long owner, Instant start, Instant end) {
+        var policy = repository.capacity(owner).orElseGet(CapacityCalculator.Policy::defaults);
+        var hours = repository.workingHours(owner).orElse(null);
+        if (hours == null) return new Snapshot(null, start, end, policy, List.of(), List.of(),
+                new WeeklyAvailability.Expanded(List.of(), List.of()));
+        var zone = ZoneId.of(hours.timezone());
+        var first = start.atZone(zone).toLocalDate();
+        var last = end.minusNanos(1).atZone(zone).toLocalDate();
+        long buffer = policy.bufferMinutes() * 60L;
+        var loadBounds = new TimeInterval(first.atStartOfDay(zone).toInstant().minusSeconds(buffer),
+                last.plusDays(1).atStartOfDay(zone).toInstant().plusSeconds(buffer));
+        return new Snapshot(hours, start, end, policy, repository.fixed(owner, loadBounds),
+                repository.blocks(owner, loadBounds), availability.expand(hours, first, last));
+    }
+
+    public record Snapshot(WorkingHours hours, Instant start, Instant end, CapacityCalculator.Policy policy,
+                           List<TimeInterval> fixed, List<TimeInterval> initialBlocks, WeeklyAvailability.Expanded expanded) {
+        public Foundation calculate(int workMinutes, List<TimeInterval> placed) {
+            if (hours == null) return new Foundation(false, null, start, end, policy, List.of(), List.of());
+            var calculator = new CapacityCalculator();
+            var generator = new CandidateSlotGenerator();
+            var blocks = new ArrayList<>(initialBlocks);
+            blocks.addAll(placed);
+            var bounds = new TimeInterval(start, end);
+            var zone = ZoneId.of(hours.timezone());
+            var first = start.atZone(zone).toLocalDate();
+            var last = end.minusNanos(1).atZone(zone).toLocalDate();
+            long buffer = policy.bufferMinutes() * 60L;
+            var unavailable = new ArrayList<>(expanded.protectedTime());
+            unavailable.addAll(fixed);
+            var usable = TimeInterval.subtract(expanded.working(), unavailable);
+            var free = TimeInterval.subtract(usable, blocks);
+            var bufferedBusy = new ArrayList<TimeInterval>();
+            for (var interval : fixed) bufferedBusy.add(pad(interval, buffer));
+            for (var interval : blocks) bufferedBusy.add(pad(interval, buffer));
+            var bufferedFree = TimeInterval.subtract(usable, bufferedBusy);
+            var candidates = generator.generate(bufferedFree, List.of(), bounds, workMinutes * 60L, policy);
+            var days = new ArrayList<DayCapacity>();
+            for (LocalDate date = first; !date.isAfter(last); date = date.plusDays(1)) {
+                Instant a = date.atStartOfDay(zone).toInstant(), b = date.plusDays(1).atStartOfDay(zone).toInstant();
+                if (!b.isAfter(a)) continue; // A timezone may skip an entire civil day.
+                var day = new TimeInterval(a, b);
+                var dailyUsable = TimeInterval.clip(usable, day);
+                var dailyFree = TimeInterval.clip(free, day);
+                var dailyBuffered = TimeInterval.clip(bufferedFree, day);
+                var capacity = calculator.calculate(dailyUsable, blocks, dailyFree, dailyBuffered, policy);
+                // The daily budget accounts for the whole day; a narrow query cannot restore occupied capacity.
+                long queryPhysical = TimeInterval.clip(dailyBuffered, bounds).stream()
+                        .mapToLong(i -> calculator.deliverableSeconds(i.seconds(), policy)).sum();
+                capacity = new CapacityCalculator.Capacity(capacity.rawFreeSeconds(), capacity.workableSeconds(),
+                        capacity.reservedSeconds(), capacity.occupiedSeconds(), capacity.occupiedWorkSeconds(),
+                        capacity.bufferSeconds(), Math.min(capacity.remainingWorkSeconds(), queryPhysical));
+                days.add(new DayCapacity(date, capacity));
+            }
+            return new Foundation(true, hours.timezone(), start, end, policy, candidates, List.copyOf(days));
+        }
+    }
+
+    private static TimeInterval pad(TimeInterval interval, long seconds) {
         return new TimeInterval(interval.start().minusSeconds(seconds), interval.end().plusSeconds(seconds));
     }
 }

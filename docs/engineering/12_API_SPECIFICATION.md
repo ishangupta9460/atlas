@@ -434,3 +434,32 @@ Daily capacities are separate limits for later placement, not a promise all cand
 be used. With no configuration, timezone is null and candidates/days are empty; an explicitly
 empty configuration returns zero-capacity days. No events, blocks or server timestamps are
 created by querying. Configuration and reservations are read in one repeatable-read transaction.
+
+### Autonomous scheduling — Chunk 2 (DEC-0017)
+
+`POST /schedule/generate` requires JWT authentication and `Idempotency-Key`.
+Body: `{startTime, endTime, work: [{commitmentId, workMinutes}], instructedCommitmentId?}`.
+Times require explicit offsets and microsecond-or-coarser precision, span at most
+31 elapsed days, and use the scheduling foundation's UTC year bounds. `work` has
+at most 1000 distinct owned Commitment IDs, each with 1–1440 requested deliverable
+work minutes. This temporary duration input is not a persistent estimate.
+Omitted work receives no fabricated duration and is not placed. Empty work is valid.
+
+Returns 200 with `{placements: [{id, decision: {commitmentId, startTime, endTime,
+placementReason, slotScore, calibration}}], unplaced: [commitmentId], importantTies:
+[{selectedCommitmentId, otherCommitmentId, message}]}`. `slotScore` has the four
+normalized dimensions; calibration explicitly reports missing historical evidence.
+The instruction selects its feasible movable item before autonomous preference
+ranking; it cannot move Fixed work or bypass prerequisites/calendar/capacity.
+Ready work with incomplete prerequisites or an existing scheduled/active block is
+not placed. Existing reservations never move. Unplaced inputs are returned without
+mutating their work state. Important unresolved item ties are surfaced in the response.
+
+Identity comes only from authentication. Missing/foreign work yields the same 404;
+invalid input or missing/invalid replay key yields 400; key reuse for another payload
+or operation yields 409. Identical replay (including reordered work inputs) returns
+the stored response. The V11 execution_idempotency store is shared with execution.
+Owner serialization, commitment row locks, block inserts, `block.generated` atlas
+reason events and the response record share one transaction. Empty results also
+replay unchanged. An explicit planning window is authoritative, with no implicit
+clock adjustment; identical snapshots and inputs produce identical decisions.

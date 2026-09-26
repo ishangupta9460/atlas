@@ -23,10 +23,10 @@
 | 2 | Hard-Consequence Urgency | Gate/tier | Qualifies only if `is_hard_consequence = true` (AI-inferred with confirm-when-consequential, resolved — see `02` §5). Narrow definition: real, near-term, irreversible-if-missed consequence. A due date alone does not qualify. |
 | 3 | User-Defined Importance | Tier | Explicit `low`/`medium`/`high`/`critical` value or category default (resolved — see `02` §5). |
 | 4 | Goal Importance & At-Risk Status | Tier | Tasks linked to a Goal in `at_risk` Planning State (`02` §2.2) receive a protective boost. Never outranks Stage 0–2. |
-| 5 | Remaining Work & Dependencies | Tier | Prefer items that unblock other work or are near completion. Full dependency-chain traversal (not direct-only), bounded by a maximum depth/count to protect performance — resolved, see §2.5. |
+| 5 | Remaining Work & Dependencies | Tier | Unblocking-first: downstream unblocked task count is primary ordering signal (higher count wins; excludes completed/cancelled items). If unblocked counts are tied, higher current_completion_pct wins. Bounded traversal — resolved per DEC-0013, see §2.5. |
 | 6 | Flexibility & Disruption Cost | Tier | Prefer the option requiring the least movement, respecting flexibility_tier (`02` §1.4): Fixed > Protected > Flexible > Optional in resistance-to-moving. |
 | 7 | Historical Execution Probability | Calibration only | Adjusts time allocation/confidence. **Never used as a ranking input for what gets scheduled.** |
-| 8 | Preference & Continuity | Tie-break | Time-of-day preference, minimizing switching — used only between otherwise-equivalent survivors. |
+| 8 | Category Continuity | Tie-break | Category continuity with the relevant preceding scheduled block/context on the timeline. If tied or unavailable, passes to §2.3 cascade. Time-of-day fit belongs exclusively to Problem B — resolved per DEC-0014, see §2.6. |
 
 ### 2.1 Fixed vs. Stage 1
 Stage 0 is the limit of the Scheduling Engine's own authority — it will never autonomously move a Fixed item. Stage 1 is the limit of the *user's* authority over their own defaults — an explicit instruction targeting a specific Fixed commitment may move it. This is implemented as: Stage 0 filters candidates for the *autonomous* placement pass; a direct user command bypasses Stage 0 entirely and is handled as a manual override (`02` §1.4 `user_moved_flag`), not as engine output.
@@ -36,7 +36,7 @@ The engine consumes `Commitment.is_hard_consequence` (boolean) as given. Populat
 
 ### 2.3 Tie-Breaking (applies after Stage 8, or whenever an earlier tier fails to distinguish two items competing for the same slot)
 Applied in order, stop at first distinguishing rule:
-1. Less remaining work wins.
+1. Less remaining work wins (evaluated as higher current_completion_pct, i.e. fewer percentage points remaining to reach 100% per DEC-0013).
 2. Closer to its own deadline/failure point wins.
 3. Less disruption if the *other* item is the one moved instead.
 4. Stronger dependency chain wins.
@@ -45,8 +45,20 @@ Applied in order, stop at first distinguishing rule:
 ### 2.4 Determinism Requirement
 Given an identical snapshot of task state, calendar state, capacity, and preferences, Stage 0–8 evaluation must produce an identical result on repeated runs. No randomness. No embedded AI calls. This is required for testability (`16` §4) and for explainability (`10` §3) — an explanation is only trustworthy if re-running the same inputs reproduces the same decision.
 
-### 2.5 Dependency Lookahead — Resolved
-Full dependency-chain traversal (A→B→C→D is understood to mean A ultimately affects D, not just its direct neighbor), bounded by a maximum depth/count to keep evaluation performant and explainable. Reuses the cycle-detection machinery already scoped in the original backlog (Sprint 4, `03_REQUIREMENTS_TRACEABILITY.md` §2) — traversal must terminate cleanly on any cycle it detects rather than looping. The specific max-depth/count bound is an implementation-tunable constant, not a product decision — a default in the 5–10 hop range is a safe starting point, adjustable without further product sign-off.
+### 2.5 Stage 5 Ordering & Dependency Lookahead — Resolved (DEC-0013)
+Stage 5 ordering follows an **Unblocking First** hierarchy:
+1. **Primary signal:** Downstream unblocked task count from full dependency-chain traversal. Higher unblocked count wins.
+2. **Exclusions:** Completed (`work_state = 'completed'`) and cancelled (`work_state = 'cancelled'`) downstream items are excluded from the unblocked count. Only actionable downstream work is counted.
+3. **Secondary signal (tie-breaker):** If unblocked counts are tied (including both being 0), higher `current_completion_pct` wins (closer to 100% completion).
+4. **Traversal bounds:** Full dependency-chain traversal is bounded by maximum depth (default 8) and maximum node count (default 64) via `DependencyLookahead` to preserve evaluation performance and cycle safety. Traversal cleanly terminates on cycles.
+5. In §2.3 Rule 1 ("Less remaining work wins"), remaining work is identically evaluated as higher `current_completion_pct`.
+
+### 2.6 Stage 8 Category Continuity & Problem B Boundary — Resolved (DEC-0014)
+Stage 8 evaluates **Category Continuity only**:
+1. When two equivalent survivors compete for the same slot, Stage 8 checks whether either candidate's `category_id` matches the `category_id` of the immediately preceding scheduled block/context on the timeline.
+2. A matching candidate wins over a non-matching candidate to minimize context-switching and protect focus (`01_SYSTEM_ARCHITECTURE.md` §1.2 Rule 5).
+3. If continuity is tied (both match, or neither matches, or no preceding block exists), Stage 8 makes no determination and passes the candidates cleanly to the §2.3 Tie-Breaking cascade.
+4. **Time-of-day fit is explicitly excluded from Stage 8.** Time-of-day preference belongs exclusively to Problem B Candidate-Slot Scoring (§3 below). Later confirmed user preferences (`08` §3, `11` §3) feed Problem B slot scoring, but must not silently create a second Stage 8 ranking mechanism.
 
 ## 3. Problem B — Candidate-Slot Scoring
 
@@ -59,6 +71,19 @@ Operates only on slots that survived §2. Scoring dimensions (Master Spec §1.12
 - **Learned preferences** — any other per-user pattern (`11_ANALYTICS_AND_LEARNING.md` supplies the learned values; this engine only consumes them).
 
 **Output:** a single best slot (or ranked list, for UI preview during roadmap-import scheduling) among Problem-A-approved candidates. This is the only place a composite score is used — it never influences *what* gets a slot, only *which* slot among options already deserving one.
+
+### 3.1 Temporary Chunk 2 scoring baseline (DEC-0017)
+
+Product-owner approved 2026-09-25: all four dimensions are normalized [0,1],
+with equal nominal weights (arithmetic mean). Unknown confirmed time-of-day or
+energy evidence contributes zero; the engine does not infer preferences.
+Continuity is 1 if the preceding relevant block category matches, otherwise 0.
+For leftover usable gap seconds g and requested work seconds w, fragmentation
+penalty is 0 when g >= w, otherwise g/w (bounded [0,1]); score is 1 - penalty.
+Explicit planning-window and per-item work-minute inputs are temporary,
+request-scoped values, never persisted as duration estimates. Replacement by
+confirmed preferences or persistent estimates requires a new product decision.
+
 
 ## 4. Capacity Model
 
