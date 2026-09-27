@@ -682,3 +682,33 @@ RELATED DOCUMENTS: 02 §1.4; 04 §2.5; 13; 01 §4; C1 in ATLAS_PARALLEL_WORK_PLA
   technical discriminator. Equal slot scores for the same item use UTC start/end
   after the item tie cascade (which cannot distinguish an item from itself).
 - RELATED: SCH-008, SCH-011, SCH-012; 04 sections 2–3; Chunk 2 request.
+
+### DEC-0018 — Executed means active execution time
+
+- DATE: 2026-09-27; TYPE: Product; STATUS: Approved.
+- AUTHORITY: Explicit product-owner approval in the Chunk 3 implementation conversation.
+- DECISION: P/E/A Executed EXCLUDES pauses. Sum accumulated Running/active intervals,
+  persisted as actual_sessions.active_millis at Finish, never raw actual_end - actual_start.
+  A 60-minute wall-clock session containing a 10-minute pause contributes 50 minutes Executed.
+- PRESERVATION: Keep pause/resume events, runtime history, Actual Session timestamps and
+  outcomes intact and immutable. Do not delete, rewrite or backfill historical facts.
+  Subsequent belief-state reports do not alter earlier execution records.
+- RESOLUTION: Supersedes the wall-clock formula previously in 11 section 1; aligns that
+  definition with 09 section 1 and the existing V11 active-time implementation.
+- RELATED: EXEC-005; 09 sections 1/3/5; 11 section 1; 12 section 7.2; Chunk 3 handoff.
+
+### DEC-0019 — Chunk 3 bounded execution implementation
+
+- DATE: 2026-09-27; TYPE: Implementation; STATUS: Approved within authorized scope.
+- AUTHORITY: Product-owner Chunk 3 implementation request: reuse V11, permit continued
+  overrun, persist single prompt state, enforce hard calendar constraints on manual moves,
+  retain legacy cutover as unresolved, and keep later chunks out of scope.
+- DECISION: Add V13 nullable runtime prompt marker; atomic owner-scoped claim through existing
+  idempotency/event infrastructure. Add clock injection for boundary tests. Use existing
+  working-hours/capacity arithmetic for manual placement. Expose saved timezone/sticky state
+  in the existing workspace. Extend ScheduleTimeline with a week grid, retaining the day view.
+- Spec 09 section 1's obsolete forced-overrun-finish wording is corrected to match section 4
+  and the explicit Chunk 3 request. Finish/report remains the already documented atomic API.
+- No resources are synthesized, no legacy migration/removal, no scheduler/recovery redesign.
+- Executed duration is governed by the approved active-time decision DEC-0018.
+- RELATED: EXEC-001–004; UI-001, UI-002, UI-007; 09, 12, 13; ATLAS-CHUNK-3 handoff.

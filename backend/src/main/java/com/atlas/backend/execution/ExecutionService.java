@@ -24,23 +24,32 @@ public class ExecutionService {
     private final CommitmentService domain;
     private final CommitmentDependencyRepository dependencies;
     private final EventRepository events;
+    private final ExecutionClock clock;
+    private final ManualWindowValidator windows;
     private final ObjectMapper mapper = new ObjectMapper();
     public ExecutionService(JdbcTemplate db, CommitmentRepository commitments, CommitmentService domain,
-                            CommitmentDependencyRepository dependencies, EventRepository events, ExecutionIdempotency idempotency) {
+                            CommitmentDependencyRepository dependencies, EventRepository events, ExecutionIdempotency idempotency,
+                            ExecutionClock clock, ManualWindowValidator windows) {
+        this.clock=clock; this.windows=windows;
         this.idempotency=idempotency;
         this.db=db; this.commitments=commitments; this.domain=domain; this.dependencies=dependencies; this.events=events;
     }
     public record Work(Long id, String title, String completionCriterion, String description, String workState,
         BigDecimal completionPct, String importance, String flexibilityTier, Instant deadline,
-        Long goalId, String goalTitle, String goalState, String milestoneTitle, String categoryName, int blockers) {}
+        Long goalId, String goalTitle, String goalState, String milestoneTitle, String categoryName, int blockers,
+        boolean hardConsequence) {}
     public record Block(Long id, Long commitmentId, Instant startTime, Instant endTime, String state,
-        String placementReason, String sessionState, Instant actualStart, Instant runningSince, long activeMillis) {}
+        String placementReason, String sessionState, Instant actualStart, Instant runningSince, long activeMillis,
+        boolean userMovedFlag, Instant overrunPromptedAt) {}
     public record Fixed(Long id, String title, Instant startTime, Instant endTime) {}
     public record History(Long blockId, Long commitmentId, String title, Instant startTime, Instant endTime,
         long activeMillis, String report, BigDecimal completionPct) {}
-    public record Workspace(Instant serverTime, List<Work> tasks, List<Block> blocks, List<Fixed> fixed, List<History> history) {}
+    public record Achievement(Long commitmentId, Long goalId, String title, BigDecimal completionPct) {}
+    public record Progress(long plannedMillis, long executedMillis, List<Achievement> achieved) {}
+    public record Overrun(boolean showPrompt, Instant promptedAt) {}
+    public record Workspace(Instant serverTime, String timezone, List<Work> tasks, List<Block> blocks, List<Fixed> fixed, List<History> history, Progress progress) {}
 
-    @Transactional(readOnly=true)
+    @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public Workspace workspace(Long owner) {
         List<Work> work = db.query("""
             SELECT c.*, g.title goal_title, g.planning_state goal_state, m.title milestone_title, cat.name category_name,
@@ -53,7 +62,7 @@ public class ExecutionService {
                 r.getString("description"),r.getString("work_state"),r.getBigDecimal("current_completion_pct"),
                 r.getString("importance"),r.getString("flexibility_tier"),instant(r,"own_deadline"),
                 r.getObject("goal_id",Long.class),r.getString("goal_title"),r.getString("goal_state"),
-                r.getString("milestone_title"),r.getString("category_name"),r.getInt("blockers")), owner);
+                r.getString("milestone_title"),r.getString("category_name"),r.getInt("blockers"),r.getBoolean("is_hard_consequence")), owner);
         List<Block> blocks = db.query(blockSelect()+" WHERE b.user_id=? ORDER BY b.start_time,b.id", this::block, owner);
         List<Fixed> fixed = db.query("SELECT * FROM fixed_commitments WHERE user_id=? ORDER BY start_time,id",
             (r,n) -> new Fixed(r.getLong("id"),r.getString("title"),instant(r,"start_time"),instant(r,"end_time")),owner);
@@ -64,7 +73,14 @@ public class ExecutionService {
             """, (r,n) -> new History(r.getLong("scheduled_block_id"),r.getLong("commitment_id"),r.getString("title"),
                 instant(r,"actual_start"),instant(r,"actual_end"),r.getLong("active_millis"),
                 r.getString("user_reported_outcome"),r.getBigDecimal("completion_pct")),owner);
-        return new Workspace(Instant.now(),work,blocks,fixed,history);
+        String timezone=db.query("SELECT timezone FROM scheduling_config WHERE user_id=?",(r,n)->r.getString(1),owner)
+            .stream().filter(Objects::nonNull).findFirst().orElse(null);
+        long planned=blocks.stream().filter(b -> !b.state().equals("superseded"))
+            .mapToLong(b -> Duration.between(b.startTime(),b.endTime()).toMillis()).sum();
+        long executed=history.stream().mapToLong(History::activeMillis).sum();
+        var achieved=work.stream().filter(w -> !w.workState().equals("cancelled"))
+            .map(w -> new Achievement(w.id(),w.goalId(),w.title(),w.completionPct())).toList();
+        return new Workspace(clock.now(),timezone,work,blocks,fixed,history,new Progress(planned,executed,achieved));
     }
 
     @Transactional
@@ -91,8 +107,8 @@ public class ExecutionService {
         String replay=replay(owner,key,fingerprint); if (replay!=null) return replay;
         Commitment task=ready(owner,request.commitmentId());
         Instant start=request.startTime().truncatedTo(ChronoUnit.MICROS), end=request.endTime().truncatedTo(ChronoUnit.MICROS);
-        if (!end.isAfter(start) || start.isBefore(Instant.now().minusSeconds(60)) ||
-            start.isBefore(Instant.parse("1000-01-01T00:00:00Z")) || end.isAfter(Instant.parse("9999-12-31T23:59:59Z")) ||
+        if (!end.isAfter(start) || start.isBefore(clock.now().minusSeconds(60)) ||
+            start.isBefore(Instant.parse("1001-01-01T00:00:00Z")) || end.isAfter(Instant.parse("9998-12-31T00:00:00Z")) ||
             Duration.between(start,end).compareTo(Duration.ofHours(24))>0)
             throw new ExecutionException(400,"Choose a future work window of at most 24 hours.");
         if (db.queryForObject("SELECT COUNT(*) FROM scheduled_blocks WHERE user_id=? AND commitment_id=? AND state IN ('scheduled','active')",Long.class,owner,task.getId())>0)
@@ -100,6 +116,7 @@ public class ExecutionService {
         if (db.queryForObject("SELECT COUNT(*) FROM fixed_commitments WHERE user_id=? AND start_time<? AND end_time>?",Long.class,owner,utc(end),utc(start))>0 ||
             db.queryForObject("SELECT COUNT(*) FROM scheduled_blocks WHERE user_id=? AND state IN ('scheduled','active') AND start_time<? AND end_time>?",Long.class,owner,utc(end),utc(start))>0)
             throw ExecutionException.conflict("That window overlaps planned work. Choose another time; nothing has been moved.");
+        windows.validate(owner,start,end);
         GeneratedKeyHolder generated=new GeneratedKeyHolder();
         db.update(connection -> {
             var statement=connection.prepareStatement("INSERT INTO scheduled_blocks(user_id,commitment_id,start_time,end_time,state,user_moved_flag,placement_reason) VALUES(?,?,?,?,'scheduled',TRUE,?)",java.sql.Statement.RETURN_GENERATED_KEYS);
@@ -117,7 +134,7 @@ public class ExecutionService {
         String fingerprint=id+":"+action+":"+mapper.writeValueAsString(report);
         String replay=replay(owner,key,fingerprint); if(replay!=null) return replay;
         Block b=owned(owner,id);
-        Instant now=Instant.now().truncatedTo(ChronoUnit.MICROS);
+        Instant now=clock.now().truncatedTo(ChronoUnit.MICROS);
         if (action.equals("start")) {
             if (!b.state().equals("scheduled") || b.sessionState()!=null) throw ExecutionException.conflict("This window has already been started.");
             if (now.isBefore(b.startTime()) || !now.isBefore(b.endTime())) throw ExecutionException.conflict("Start within the planned window. If it has passed, move it to a new time.");
@@ -160,6 +177,24 @@ public class ExecutionService {
         return save(owner,key,fingerprint,owned(owner,id));
     }
 
+    /** Atomic claim: only one browser/tab may surface a session's non-blocking prompt. */
+    @Transactional
+    public String overrun(Long owner, Long id, String key) {
+        lock(owner);
+        String fingerprint="overrun:"+id;
+        String replay=replay(owner,key,fingerprint); if(replay!=null) return replay;
+        Block b=owned(owner,id);
+        Instant now=clock.now().truncatedTo(ChronoUnit.MICROS);
+        boolean show=b.state().equals("active") && "running".equals(b.sessionState())
+            && b.overrunPromptedAt()==null && !now.isBefore(b.endTime().plusSeconds(300));
+        if(show) {
+            db.update("UPDATE focus_sessions SET overrun_prompted_at=? WHERE scheduled_block_id=?",utc(now),id);
+            events.appendAndFlush(Event.forEntity("scheduled_block",id,"session.overrun_prompted","atlas",
+                "The session continued five minutes beyond its planned end.",mapper.writeValueAsString(Map.of("at",now.toString()))));
+        }
+        return idempotency.save(owner,key,fingerprint,mapper.writeValueAsString(new Overrun(show,show ? now : b.overrunPromptedAt())));
+    }
+
     private Commitment ready(Long owner, Long id) {
         Commitment c=commitments.lockOwned(id,owner).orElseThrow(CommitmentException::missing);
         if (!c.getWorkState().equals("ready")) throw ExecutionException.conflict("This task needs a title and completion criterion, and must be ready.");
@@ -182,10 +217,11 @@ public class ExecutionService {
     private Block owned(Long owner,Long id) {
         return db.query(blockSelect()+" WHERE b.user_id=? AND b.id=?",this::block,owner,id).stream().findFirst().orElseThrow(ExecutionException::missing);
     }
-    private String blockSelect() { return "SELECT b.*,s.state session_state,s.actual_start,s.running_since,s.active_millis FROM scheduled_blocks b LEFT JOIN focus_sessions s ON s.scheduled_block_id=b.id"; }
+    private String blockSelect() { return "SELECT b.*,s.state session_state,s.actual_start,s.running_since,s.active_millis,s.overrun_prompted_at FROM scheduled_blocks b LEFT JOIN focus_sessions s ON s.scheduled_block_id=b.id"; }
     private Block block(ResultSet r,int n) throws SQLException {
         return new Block(r.getLong("id"),r.getLong("commitment_id"),instant(r,"start_time"),instant(r,"end_time"),r.getString("state"),
-            r.getString("placement_reason"),r.getString("session_state"),instant(r,"actual_start"),instant(r,"running_since"),r.getLong("active_millis"));
+            r.getString("placement_reason"),r.getString("session_state"),instant(r,"actual_start"),instant(r,"running_since"),r.getLong("active_millis"),
+            r.getBoolean("user_moved_flag"),instant(r,"overrun_prompted_at"));
     }
     private static LocalDateTime utc(Instant i) { return LocalDateTime.ofInstant(i,ZoneOffset.UTC); }
     private static Instant instant(ResultSet r,String column) throws SQLException {

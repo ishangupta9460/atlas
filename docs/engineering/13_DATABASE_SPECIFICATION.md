@@ -106,3 +106,12 @@ Configuration changes serialize on the owner users row and atomically append
 entity id = user id, before/after payload) to the existing log. No-op writes emit no event.
 Candidate arithmetic is read-only. Schema checks constrain fraction/ranges/kind/weekday and
 distinct window endpoints. Weekly cross-row overlap validation remains in the application.
+
+## Chunk 3 Physical Mapping — V13
+
+V13 adds nullable UTC `DATETIME(6) focus_sessions.overrun_prompted_at`. Existing sessions
+begin with no claim. The execution service sets it once under the owning user's row lock,
+with the corresponding Event Log entry and existing execution_idempotency replay response
+in the same transaction. Finished runtime and Actual Session facts are not changed by a claim.
+No second session/report model, legacy conversion, destructive DDL or historical migration
+edit is introduced. Fresh and populated-upgrade tests preserve existing session and V2 data.

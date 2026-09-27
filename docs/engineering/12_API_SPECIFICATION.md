@@ -317,9 +317,45 @@ The core-execution build adds user-directed windows, not autonomous placement or
   All state, history, events, and replay records share one transaction.
 - Fixed writes serialize with execution but preserve their existing overlap-allowed
   contract. New conflicts are displayed; Start refuses a conflicting window. No silent movement.
-- `/schedule/today`, `/schedule/week`, automatic placement/buffers, progress correction,
-  retroactive reporting, and recovery orchestration remain future contracts. The initial
-  Schedule UI is a seven-day agenda over recorded windows and fixed commitments.
+- `/schedule/today`, `/schedule/week`, progress correction, retroactive reporting,
+  and recovery orchestration remain future contracts. Today and the week calendar consume
+  the same `/execution` workspace; automatic generation is documented below.
+
+### 7.2 Chunk 3 execution extensions (2026-09-27)
+
+- `GET /execution` also returns `progress: {plannedMillis, executedMillis, achieved}`.
+  This bounded execution summary covers all recorded work, not an arbitrary historical window.
+  Planned sums non-superseded block durations; Executed sums immutable finished-session
+  `activeMillis` (Running intervals only, excluding pauses, approved DEC-0018). Unfinished
+  runtime does not contribute to Executed. Achieved lists each non-cancelled commitment's
+  `{commitmentId, goalId, title, completionPct}` current belief, in workspace task order.
+  No blended score or inferred cross-task weighting is introduced. Empty totals are zero
+  with an empty achieved list. Repeated sessions contribute separate active durations while
+  each commitment appears once with its latest belief; replaced blocks are not double-counted.
+
+- The workspace is read in one repeatable-read transaction. `timezone` is the saved IANA
+  scheduling zone, or null before configuration. Blocks additionally expose `userMovedFlag`
+  and nullable `overrunPromptedAt`; tasks expose the existing `hardConsequence` flag.
+  Resources are not yet persisted, and the UI states their absence rather than inventing links.
+- Manual place and move additionally require configured working hours, containment in usable
+  time, protected/fixed/other-block exclusion, configured inter-block buffers and each affected
+  local day's workable capacity. These reuse the Chunk 1 arithmetic. A failed move rolls back
+  superseding the original block. A successful move creates a sticky replacement, preserving
+  the original history and ownership. The autonomous generator preserves that reservation.
+- `POST /blocks/{id}/session/overrun`, with `Idempotency-Key`, returns
+  `{showPrompt, promptedAt}`. A Running session is eligible at **endTime + 5 minutes inclusive**.
+  The first eligible claim stores V13's timestamp and an atomic `session.overrun_prompted`
+  event (actor `atlas`). Later distinct claims return false and the saved timestamp. Before
+  eligibility or while Paused, false/null is returned without changing the session.
+  Same-key retries return the original response; a later eligibility check uses a new key.
+  No claim pauses or finishes execution. Missing/foreign blocks return 404; missing keys 400.
+- A client retains an ambiguous request's key for retry. Existing attempts may replay even
+  after a refresh loads the marker; new clients respect the marker and do not prompt again.
+  This is a single server claim with replay, not a guarantee of visual delivery through a
+  browser crash between committing the claim and rendering it.
+- Finish retains the §7.1 atomic report-and-finish contract. Separate correction/retroactive
+  endpoints are not introduced. A later valid session can revise the belief without changing
+  earlier Actual Session rows, timestamps, outcomes or pause/resume events.
 
 ## 8. Resources
 
