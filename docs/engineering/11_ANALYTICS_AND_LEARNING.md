@@ -15,8 +15,10 @@
 | Figure | Source | Computed from |
 |---|---|---|
 | Planned | Scheduled Blocks | `SUM(scheduled_blocks.end_time - start_time)` over the reporting window, per `13` §1 |
-| Executed | Actual Sessions | `SUM(actual_sessions.actual_end - actual_start)` over the same window — the immutable record, `02` §1.7 |
+| Executed | Actual Sessions | `SUM(actual_sessions.active_millis)` over the same window, converted to the displayed unit — accumulated Running intervals only; pauses excluded (DEC-0018), immutable record per `02` §1.7 |
 | Achieved | Commitment belief-state | `current_completion_pct` (`02` §1.7) at window end, aggregated per Goal/category as relevant to the requested breakdown |
+
+**Approved duration semantics (DEC-0018):** Executed uses active execution time, never raw start-to-finish elapsed time. A 60-minute wall-clock session with a 10-minute pause contributes 50 minutes Executed. Preserve all pause/resume history and Actual Session facts; this definition authorizes no history rewrite.
 
 **Reporting rule [EXPLICIT]:** these three figures are always presented together, never averaged into a single "productivity score." A Planned-10h/Executed-7h/Achieved-35% result is reported as exactly that triple, with the gap itself treated as the signal (per §4 below), not smoothed away.
 

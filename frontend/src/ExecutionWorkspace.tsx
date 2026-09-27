@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, Client, jsonBody, messageOf } from "./api";
-import { Block, Work, Workspace, ExecutionView, clock, date, duration, elapsed, label, sameDay, time } from "./execution";
+import { Block, Work, Workspace, ExecutionView, clock, date as formatDate, duration, elapsed, label, sameDay as isSameDay, time as formatTime } from "./execution";
+import { displayZone, localInput } from "./executionTime";
 import DependencyPanel from "./DependencyPanel";
 import TodayScreen from "./TodayScreen";
 import ScheduleTimeline from "./ScheduleTimeline";
@@ -24,12 +25,13 @@ export default function ExecutionWorkspace({ client, view, navigate, initialTask
   const [scheduleDay, setScheduleDay] = useState<string | null>(null);
   const closureRef = useRef<HTMLElement>(null);
   const [now, setNow] = useState(Date.now());
-  const offset = useRef(0);
+  const anchor = useRef({ server: Date.now(), monotonic: performance.now() });
   const pending = useRef(false);
   // Preserve the key for a failed/ambiguous request so Retry cannot duplicate a mutation.
   const replay = useRef<{ fingerprint: string; key: string } | null>(null);
   const apply = useCallback((value: Workspace) => {
-    offset.current = Date.parse(value.serverTime) - Date.now(); setNow(Date.now() + offset.current); setData(value);
+    anchor.current = { server: Date.parse(value.serverTime), monotonic: performance.now() };
+    setNow(anchor.current.server); setData(value);
   }, []);
   useEffect(() => {
     const controller = new AbortController(); setLoading(true); setError("");
@@ -41,7 +43,7 @@ export default function ExecutionWorkspace({ client, view, navigate, initialTask
   }, [client, retry, apply]);
   useEffect(() => { setSelected(initialTask); }, [initialTask]);
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now() + offset.current), 1000);
+    const timer = window.setInterval(() => setNow(anchor.current.server + performance.now() - anchor.current.monotonic), 1000);
     const refresh = () => { if (!document.hidden && !pending.current) setRetry(n => n + 1); };
     document.addEventListener("visibilitychange", refresh);
     return () => { clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
@@ -64,10 +66,14 @@ export default function ExecutionWorkspace({ client, view, navigate, initialTask
     } finally { pending.current = false; setBusy(false); }
   }
 
+  const timezone = data?.timezone;
+  const time = (value: string) => formatTime(value, timezone);
+  const date = (value: string) => formatDate(value, timezone);
+  const sameDay = (value: string, at: number) => isSameDay(value, at, timezone);
   const tasks = data?.tasks ?? [];
   const taskFor = (block: Block) => tasks.find(t => t.id === block.commitmentId);
   const active = data?.blocks.find(b => b.state === "active");
-  const scheduled = (data?.blocks.filter(b => b.state === "scheduled") ?? []).sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
+  const scheduled = (data?.blocks.filter(b => b.state === "scheduled" && tasks.some(t => t.id === b.commitmentId && t.workState === "ready")) ?? []).sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime) || a.id - b.id);
   const today = scheduled.filter(b => (sameDay(b.startTime, now) || Date.parse(b.startTime) <= now) && Date.parse(b.endTime) > now);
   const current = active ?? today.find(b => Date.parse(b.startTime) <= now);
   const next = today.filter(b => b.id !== current?.id);
@@ -81,17 +87,25 @@ export default function ExecutionWorkspace({ client, view, navigate, initialTask
   const fixedNow = data?.fixed.filter(f => Date.parse(f.startTime) <= now && Date.parse(f.endTime) > now) ?? [];
   const upcoming = data ? timelineItems(data).filter(i => i.start > now && i.state !== "completed")[0] : undefined;
   const [overrunPrompt, setOverrunPrompt] = useState<number | null>(null);
-  const seenOverrun = useRef(new Set<number>());
+  const overrunAttempt = useRef<{ id: number; key: string; pending: boolean; done: boolean; retryAt: number } | null>(null);
   useEffect(() => {
-    if (!active || active.sessionState !== "running" || now <= Date.parse(active.endTime) + 300000 || (view !== "today" && view !== "focus")) return;
-    if (seenOverrun.current.has(active.id)) return;
-    seenOverrun.current.add(active.id);
-    try {
-      if (sessionStorage.getItem(`atlas.overrun.${active.id}`)) return;
-      sessionStorage.setItem(`atlas.overrun.${active.id}`, "shown");
-    } catch { /* In-memory guard still prevents repeated prompts when storage is unavailable. */ }
-    setOverrunPrompt(active.id);
-  }, [active, now, view]);
+    if (!active || active.sessionState !== "running" || now < Date.parse(active.endTime) + 300000 || (view !== "today" && view !== "focus")) return;
+    if (active.overrunPromptedAt && overrunAttempt.current?.id !== active.id) return;
+    if (overrunAttempt.current?.id !== active.id) overrunAttempt.current = { id: active.id, key: crypto.randomUUID(), pending: false, done: false, retryAt: 0 };
+    const attempt = overrunAttempt.current;
+    if (attempt.pending || attempt.done || now < attempt.retryAt) return;
+    attempt.pending = true;
+    void client<{ showPrompt: boolean; promptedAt: string | null }>(`/blocks/${active.id}/session/overrun`, { method: "POST", headers: { "Idempotency-Key": attempt.key } }).then(result => {
+      attempt.done = result.showPrompt || !!result.promptedAt;
+      if (result.showPrompt) setOverrunPrompt(attempt.id);
+      else if (!attempt.done) {
+        // Another tab may have paused, or the server may not yet be at the boundary.
+        // Refresh runtime and re-evaluate with a NEW logical claim, not a cached false replay.
+        attempt.key = crypto.randomUUID(); attempt.retryAt = now + 10000; setRetry(n => n + 1);
+      }
+    }).catch(() => { attempt.retryAt = anchor.current.server + performance.now() - anchor.current.monotonic + 10000; })
+      .finally(() => { attempt.pending = false; });
+  }, [active, now, view, client]);
 
   async function transition(block: Block, action: "start" | "pause" | "resume") {
     if (await mutate(`/blocks/${block.id}/session/${action}`)) {
@@ -123,6 +137,8 @@ export default function ExecutionWorkspace({ client, view, navigate, initialTask
       {task?.goalState === "at_risk" && <span className="badge risk">Goal at risk</span>}
       <h1>{task?.title}</h1>
       <p className="completion-criterion">{task?.completionCriterion}</p>
+      <p className="hint">Resources are not available for this task.</p>
+      {task?.hardConsequence && <p className="hint">This task has a confirmed hard consequence.</p>}
       {block.sessionState && <>
         <div className="session-clock" aria-label="Active time">{clock(elapsed(block, now))}</div>
         <p className="hint">Active time · pauses excluded</p>
@@ -139,7 +155,7 @@ export default function ExecutionWorkspace({ client, view, navigate, initialTask
   }
 
   return <>
-    <div className="page-heading execution-heading"><div><p className="eyebrow">{view === "today" ? date(new Date(now).toISOString()) : "Your space to make progress"}</p><h1>{label(view).replace(/^./, s => s.toUpperCase())}</h1><p>{view === "today" ? "One thing in front of you. Room for what comes next." : view === "focus" ? "Everything else can wait a moment." : view === "schedule" ? "The work windows you chose, alongside your fixed commitments." : "What you planned, what you worked on, and what moved forward."}</p></div>
+    <div className="page-heading execution-heading"><div><p className="eyebrow">{view === "today" ? date(new Date(now).toISOString()) : "Your space to make progress"}</p><h1>{label(view).replace(/^./, s => s.toUpperCase())}</h1><p>{view === "today" ? "One thing in front of you. Room for what comes next." : view === "focus" ? "Everything else can wait a moment." : view === "schedule" ? "Your scheduled work, alongside your fixed commitments." : "What you planned, what you worked on, and what moved forward."}</p></div>
       <button className="text-button" disabled={busy || loading} onClick={() => setRetry(n => n + 1)}>Refresh</button></div>
     {error && <p role="alert" className="error">{error}</p>}
     {notice && <p role="status" className="notice">{notice}</p>}
@@ -150,9 +166,9 @@ export default function ExecutionWorkspace({ client, view, navigate, initialTask
         <div className="section-heading"><h2>Now</h2><button className="text-button" onClick={() => setShowCapture(true)}>Add a task</button></div>
         {current ? hero(current) : <div className="day-breathing-room"><h3>{fixedNow.length ? fixedNow.map(f => f.title).join(" · ") : "A little room in your day."}</h3><p>{fixedNow.length ? `Fixed commitment · until ${time(new Date(Math.max(...fixedNow.map(f => Date.parse(f.endTime)))).toISOString())}` : upcoming ? `${duration(upcoming.start - now)} until ${upcoming.title} at ${time(new Date(upcoming.start).toISOString())}. No work window is open right now.` : "No work window is open right now. Choose a task when you’re ready."}</p><button className="text-button" onClick={() => unplanned[0] ? setSelected(unplanned[0].id) : setShowCapture(true)}>{unplanned.length ? "Choose work for this time →" : "Capture a next step"}</button></div>}
         <section aria-label="Next"><div className="section-heading"><h2>Next</h2><button className="text-button" onClick={() => navigate("schedule")}>View schedule →</button></div>
-          {next.length ? <ul className="row-list">{next.slice(0, 3).map(row)}</ul> : <p className="hint">No more work windows today. Leave room, or choose another task.</p>}
+          {next.length ? <ul className="row-list">{next.slice(0, 2).map(row)}</ul> : <p className="hint">No more work windows today. Leave room, or choose another task.</p>}
         </section>
-        {next.length > 3 && <details className="disclosure"><summary>Later · {next.length - 3} more today</summary><ul className="row-list">{next.slice(3).map(row)}</ul></details>}
+        {next.length > 2 && <details className="disclosure"><summary>Later · {next.length - 2} more today</summary><ul className="row-list">{next.slice(2).map(row)}</ul></details>}
         {missed.length > 0 && <details className="disclosure"><summary>Pick up where you left off · {missed.length} unstarted {missed.length === 1 ? "window" : "windows"}</summary><p className="hint">These windows have passed. Nothing has been marked as failed. Open a task to choose a new time.</p><ul className="row-list">{missed.map(row)}</ul></details>}
         <details className="disclosure" open={!current}><summary>Ready when you are · {unplanned.length} unplanned tasks</summary><p className="hint">In capture order. These tasks do not have scheduled times yet.</p>
           <ul className="row-list">{unplanned.map(task => <li className="row-item" key={task.id}><div className="row-item-main"><h3>{task.title}</h3><p className="hint">{task.goalTitle ?? "Independent task"}{task.blockers > 0 ? ` · ${task.blockers} unfinished prerequisites` : ""}</p></div><button onClick={() => setSelected(task.id)}>{task.blockers ? "Review prerequisites" : "Schedule this"}</button></li>)}</ul>
@@ -174,9 +190,9 @@ export default function ExecutionWorkspace({ client, view, navigate, initialTask
         }} />}
         <button className="text-button" onClick={() => navigate("today")}>← Back to Today</button>
       </>}
-      {view === "schedule" && <ScheduleTimeline data={data} now={now} selectedDay={scheduleDay} changeDay={setScheduleDay} select={setSelected} capture={() => setShowCapture(true)} />}
+      {view === "schedule" && <ScheduleTimeline data={data} now={now} selectedDay={scheduleDay} changeDay={setScheduleDay} select={setSelected} capture={() => setShowCapture(true)} busy={busy} move={async (block, startTime) => { await mutate(`/schedule/blocks/${block.id}/move`, { commitmentId: block.commitmentId, startTime, endTime: new Date(Date.parse(startTime) + Date.parse(block.endTime) - Date.parse(block.startTime)).toISOString() }); }} />}
       {view === "progress" && <Progress data={data} openGoal={openGoal} />}
-      {selectedTask && <TaskBrief key={selectedTask.id} task={selectedTask} client={client} blocks={data.blocks} now={now} busy={busy} refresh={() => setRetry(n => n + 1)} close={() => setSelected(null)} openGoal={openGoal} work={block => void transition(block, block.sessionState === "paused" ? "resume" : "start")} focus={() => navigate("focus")} onPlace={async (startTime, endTime, oldId) => {
+      {selectedTask && <TaskBrief key={selectedTask.id} task={selectedTask} timezone={timezone} client={client} blocks={data.blocks} now={now} busy={busy} refresh={() => setRetry(n => n + 1)} close={() => setSelected(null)} openGoal={openGoal} work={block => void transition(block, block.sessionState === "paused" ? "resume" : "start")} focus={() => navigate("focus")} onPlace={async (startTime, endTime, oldId) => {
         const saved = await mutate(oldId ? `/schedule/blocks/${oldId}/move` : "/schedule/blocks", { commitmentId: selectedTask.id, startTime, endTime });
         if (saved) {
           setScheduleDay(startTime);
@@ -189,15 +205,17 @@ export default function ExecutionWorkspace({ client, view, navigate, initialTask
   </>;
 }
 
-function TaskBrief({ task, blocks, client, now, busy, close, onPlace, openGoal, refresh, work, focus }: {
-  task: Work; blocks: Block[]; client: Client; now: number; busy: boolean; close: () => void;
+function TaskBrief({ task, timezone, blocks, client, now, busy, close, onPlace, openGoal, refresh, work, focus }: {
+  task: Work; timezone?: string | null; blocks: Block[]; client: Client; now: number; busy: boolean; close: () => void;
   onPlace: (start: string, end: string, oldId?: number) => Promise<boolean>; openGoal: (id: number) => void;
   refresh: () => void; work: (block: Block) => void; focus: () => void;
 }) {
+  const time = (value: string) => formatTime(value, timezone);
+  const date = (value: string) => formatDate(value, timezone);
   const existing = blocks.find(b => b.commitmentId === task.id && b.state === "scheduled");
   const session = blocks.find(b => b.commitmentId === task.id && b.state === "active");
   const otherSession = blocks.some(b => b.state === "active" && b.commitmentId !== task.id);
-  const [minutes, setMinutes] = useState(25);
+  const [minutes, setMinutes] = useState(existing ? (Date.parse(existing.endTime) - Date.parse(existing.startTime)) / 60000 : 25);
   const [when, setWhen] = useState("");
   const [dependencies, setDependencies] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
@@ -212,6 +230,8 @@ function TaskBrief({ task, blocks, client, now, busy, close, onPlace, openGoal, 
     {task.goalTitle && <button className="text-button goal-context" onClick={() => openGoal(task.goalId!)}>Goal · {task.goalTitle} →</button>}
     {task.milestoneTitle && <p className="hint">Milestone · {task.milestoneTitle}</p>}
     {task.workState === "draft" ? <ReadyForm task={task} client={client} saved={refresh} /> : <><h2 className="brief-label">What done looks like</h2><p>{task.completionCriterion}</p></>}
+    <p className="hint">Resources are not available for this task.</p>
+    {task.hardConsequence && <p className="hint">This task has a confirmed hard consequence.</p>}
     <p className="hint">{label(task.workState)} · {task.completionPct}% reported complete</p>
     <details className="disclosure" onToggle={e => setContextOpen(e.currentTarget.open)}><summary>More context</summary><dl className="context-grid"><dt>Importance</dt><dd>{label(task.importance)}</dd><dt>Flexibility</dt><dd>{label(task.flexibilityTier)}</dd><dt>Category</dt><dd>{task.categoryName ?? "None"}</dd><dt>Deadline</dt><dd>{task.deadline ? `${date(task.deadline)} · ${time(task.deadline)}` : "No deadline"}</dd></dl>{task.description && <p className="report-text">{task.description}</p>}{contextOpen && <TaskPreferences task={task} client={client} saved={refresh} />}</details>
     <details className="disclosure" onToggle={e => setDependencies(e.currentTarget.open)}><summary>Prerequisites · {task.blockers} unfinished</summary>{dependencies && <DependencyPanel task={task} client={client} onChanged={refresh} />}</details>
@@ -220,13 +240,13 @@ function TaskBrief({ task, blocks, client, now, busy, close, onPlace, openGoal, 
     {existing && Date.parse(existing.startTime) <= now && Date.parse(existing.endTime) > now && <div className="actions"><button className="primary" disabled={busy || otherSession || task.blockers > 0} onClick={() => work(existing)}>Start this window →</button>{otherSession && <p className="hint">Finish your current session first.</p>}</div>}
     {task.workState === "ready" && <form onSubmit={e => {
       e.preventDefault(); setLocalError("");
-      const start = when ? new Date(when).getTime() : now;
-      if (!Number.isFinite(start) || minutes < 1 || minutes > 1440) { setLocalError("Choose a valid time and duration."); return; }
+      const start = when ? localInput(when, timezone) : now;
+      if (!Number.isFinite(start) || minutes < 1 || minutes > 1440) { setLocalError("Choose a valid time and duration. For a repeated or skipped clock time, choose an exact slot in Calendar."); return; }
       const signature = `${when}:${minutes}`;
       if (placementAttempt.current?.signature !== signature) placementAttempt.current = { signature, start: new Date(start).toISOString(), end: new Date(start + minutes * 60000).toISOString() };
       void onPlace(placementAttempt.current.start, placementAttempt.current.end, existing?.id).then(keepAttempt => { if (!keepAttempt) placementAttempt.current = null; });
     }}><h2 className="brief-label">{existing ? "Choose a new window" : "Make room for this"}</h2><p className="hint">You choose the time. Atlas keeps this window where you put it.</p>
-      <div className="form-grid"><div><label htmlFor="window-time">Start time <span className="hint">Leave empty for now</span></label><input id="window-time" type="datetime-local" value={when} onChange={e => setWhen(e.target.value)} disabled={busy} /></div><div><label htmlFor="window-duration">Minutes to set aside</label><input id="window-duration" type="number" min="1" max="1440" required value={minutes} onChange={e => setMinutes(Number(e.target.value))} disabled={busy} /></div></div>
+      <div className="form-grid"><div><label htmlFor="window-time">Start time ({displayZone(timezone)}) <span className="hint">Leave empty for now</span></label><input id="window-time" type="datetime-local" value={when} onChange={e => setWhen(e.target.value)} disabled={busy} /></div><div><label htmlFor="window-duration">Minutes to set aside</label><input id="window-duration" type="number" min="1" max="1440" required value={minutes} onChange={e => setMinutes(Number(e.target.value))} disabled={busy} /></div></div>
       {localError && <p role="alert" className="error">{localError}</p>}
       {task.blockers > 0 && <p className="hint">Finish the prerequisites first. Review them above, then come back to choose a window.</p>}
       <div className="actions"><button className="primary" disabled={busy || task.blockers > 0}>{busy ? "Saving…" : existing ? "Move work window" : "Set work window"}</button></div>
@@ -283,10 +303,11 @@ function Capture({ client, close, saved }: { client: Client; close: () => void; 
 }
 
 function DayOverview({ data, now }: { data: Workspace; now: number }) {
-  const { start, end } = dayBounds(now);
-  const items = dayItems(timelineItems(data), now);
+  const time = (value: string) => formatTime(value, data.timezone);
+  const { start, end } = dayBounds(now, data.timezone);
+  const items = dayItems(timelineItems(data), now, data.timezone);
   const percent = (n: number) => (n - start) / (end - start) * 100;
-  const sessions = data.history.filter(h => sameDay(h.endTime, now));
+  const sessions = data.history.filter(h => isSameDay(h.endTime, now, data.timezone));
   return <section className="day-overview" aria-label="Your day at a glance">
     <div className="day-overview-labels"><time dateTime={new Date(now).toISOString()}>Now · {time(new Date(now).toISOString())}</time><span className="hint">{sessions.length ? `${duration(sessions.reduce((sum, h) => sum + h.activeMillis, 0))} focused today` : `${items.length} recorded ${items.length === 1 ? "window" : "windows"} today`}</span></div>
     <div className="day-track" aria-hidden="true">{items.map(i => <span className={`day-mark ${i.kind} ${i.state}`} key={i.key} style={{ left: `${percent(Math.max(start, i.start))}%`, width: `${percent(Math.min(end, i.end)) - percent(Math.max(start, i.start))}%` }} />)}<span className="day-cursor" style={{ left: `${percent(now)}%` }} /></div>
@@ -296,17 +317,13 @@ function DayOverview({ data, now }: { data: Workspace; now: number }) {
 }
 
 function Progress({ data, openGoal }: { data: Workspace; openGoal: (id: number) => void }) {
-  const planned = data.blocks.filter(b => b.state !== "superseded").reduce((sum, b) => sum + Date.parse(b.endTime) - Date.parse(b.startTime), 0);
-  const executed = data.history.reduce((sum, h) => sum + h.activeMillis, 0);
-  const completed = data.tasks.filter(t => t.workState === "completed").length;
-  const goalIds = [...new Set(data.tasks.flatMap(t => t.goalId === null ? [] : [t.goalId]))];
-  return <><p className="hint">All recorded work · finished sessions only · current task progress</p><dl className="progress-summary"><div><dt>Planned</dt><dd>{duration(planned)}</dd><p className="hint">Work windows, excluding replaced windows</p></div><div><dt>Executed</dt><dd>{duration(executed)}</dd><p className="hint">Active time, excluding pauses</p></div><div><dt>Achieved</dt><dd>{completed} <span>tasks complete</span></dd><p className="hint">Your reported outcomes</p></div></dl>
-    <div className="section-heading"><h2>Goal progress</h2></div><ul className="row-list">{goalIds.map(id => {
-      const tasks = data.tasks.filter(t => t.goalId === id && t.workState !== "cancelled");
-      if (!tasks.length) return null;
-      const pct = tasks.reduce((sum, t) => sum + t.completionPct, 0) / tasks.length;
-      return <li className="row-item" key={id}><div className="row-item-main"><h3>{tasks[0].goalTitle}</h3><p className="hint">{Math.round(pct)}% · average reported task completion · {tasks.filter(t => t.workState === "completed").length}/{tasks.length} tasks complete</p><progress aria-label={`${tasks[0].goalTitle} progress`} max={100} value={pct} /></div><button onClick={() => openGoal(id)}>Open plan</button></li>;
-    })}</ul>{!goalIds.length && <p className="hint">Goal-linked task progress will appear here as you build your plans.</p>}
+  const time = (value: string) => formatTime(value, data.timezone);
+  const date = (value: string) => formatDate(value, data.timezone);
+  const progress = data.progress;
+  return <><p className="hint">All recorded work · finished sessions only · current task progress</p>
+    {progress ? <><dl className="progress-summary"><div><dt>Planned</dt><dd>{duration(progress.plannedMillis)}</dd><p className="hint">Work windows, excluding replaced windows</p></div><div><dt>Executed</dt><dd>{duration(progress.executedMillis)}</dd><p className="hint">Active time, excluding pauses</p></div><div><dt>Achieved</dt><dd>User-reported task progress</dd><p className="hint">Each task's current estimate, separate from time worked</p></div></dl>
+      <ul className="row-list" aria-label="Achieved progress">{progress.achieved.map(item => <li className="row-item" key={item.commitmentId}><div className="row-item-main"><h3>{item.title ?? "Untitled task"}</h3><p>{item.completionPct}% reported complete</p></div>{item.goalId !== null && <button onClick={() => openGoal(item.goalId!)}>Open plan</button>}</li>)}</ul>
+      {!progress.achieved.length && <p className="hint">No reported task progress yet.</p>}</> : <p role="status">Progress breakdown is unavailable. Refresh to try again.</p>}
     <div className="section-heading"><h2>Recent execution</h2></div>{!data.history.length && <p className="hint">Your first finished session will appear here, including what you accomplished.</p>}
     <ul className="row-list">{data.history.slice(0, 20).map(h => <li className="row-item" key={h.blockId}><div className="row-item-main"><h3>{h.title}</h3><p className="hint">{date(h.endTime)} · {time(h.endTime)} · {duration(h.activeMillis)} active · {h.completionPct}% reported</p><p className="report-text">{h.report}</p></div></li>)}</ul></>;
 }

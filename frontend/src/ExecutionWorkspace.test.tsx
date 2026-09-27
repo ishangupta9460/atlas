@@ -7,10 +7,11 @@ import { Workspace, Work } from "./execution";
 const task: Work = { id: 1, title: "Build the sign-in flow", completionCriterion: "Sign in and return to Today", description: "Keep it simple", workState: "ready", completionPct: 0, importance: "high", flexibilityTier: "flexible", deadline: null, goalId: 10, goalTitle: "Ship Atlas", goalState: "active", milestoneTitle: "Foundation", categoryName: "Building", blockers: 0 };
 let data: Workspace;
 let failPause: boolean;
+let loseOverrunResponse: boolean;
 const calls: { path: string; options: RequestInit }[] = [];
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 beforeEach(() => {
-  sessionStorage.clear(); sessionStorage.setItem("atlas.session", "test-token"); calls.length = 0; failPause = false;
+  sessionStorage.clear(); sessionStorage.setItem("atlas.session", "test-token"); calls.length = 0; failPause = false; loseOverrunResponse = false;
   const now = Date.now();
   data = { serverTime: new Date(now).toISOString(), tasks: [task, { ...task, id: 2, title: "Write the next chapter" }], fixed: [], history: [], blocks: [
     { id: 1, commitmentId: 1, startTime: new Date(now - 1000).toISOString(), endTime: new Date(now + 1500000).toISOString(), state: "scheduled", placementReason: "You chose this work window.", sessionState: null, actualStart: null, runningSince: null, activeMillis: 0 },
@@ -18,7 +19,11 @@ beforeEach(() => {
   vi.stubGlobal("fetch", async (path: string, options: RequestInit = {}) => {
     calls.push({ path, options });
     if (path === "/api/auth/me") return response({ id: 1, email: "person@example.com" });
-    if (path === "/execution") return response(data);
+    if (path === "/execution") return response({ ...data, progress: {
+      plannedMillis: data.blocks.filter(b => b.state !== "superseded").reduce((n,b) => n + Date.parse(b.endTime) - Date.parse(b.startTime), 0),
+      executedMillis: data.history.reduce((n,h) => n + h.activeMillis, 0),
+      achieved: data.tasks.map(t => ({commitmentId:t.id,goalId:t.goalId,title:t.title,completionPct:t.completionPct})),
+    } });
     if (path === "/goals") return response({ goals: [{ id: 10, title: "Ship Atlas", description: null, targetDeadline: null, lifecycleState: "active", planningState: "active" }], nextCursor: null });
     if (path === "/goals/10") return response({ id: 10, title: "Ship Atlas", description: null, targetDeadline: null, lifecycleState: "active", planningState: "active" });
     if (path === "/goals/10/roadmap") return response({ roadmap: { id: 1, milestones: [{ id: 1, title: "Foundation", order: 1 }] } });
@@ -39,6 +44,15 @@ beforeEach(() => {
       const b = { id: 1, commitmentId: body.commitmentId, startTime: body.startTime, endTime: body.endTime, state: "scheduled", placementReason: "You chose this work window.", sessionState: null, actualStart: null, runningSince: null, activeMillis: 0 };
       data.blocks = [b];
       return response(b);
+    }
+    if (path.endsWith("/session/overrun")) {
+      const block=data.blocks[0]; const showPrompt=!block.overrunPromptedAt;
+      if(showPrompt) block.overrunPromptedAt=data.serverTime;
+      if(loseOverrunResponse) { loseOverrunResponse=false; throw new Error("Response lost after commit"); }
+      // Existing-key replay must return the originally successful claim.
+      const retries=calls.filter(c=>c.path===path);
+      const sameKey=retries.length>1 && (retries[0].options.headers as Record<string,string>)["Idempotency-Key"]===(options.headers as Record<string,string>)["Idempotency-Key"];
+      return response({showPrompt: showPrompt || sameKey, promptedAt: block.overrunPromptedAt});
     }
     if (path.includes("/session/")) {
       const action = path.split("/").pop();
@@ -79,7 +93,7 @@ it("opens Today, runs focus pause/resume/finish, and connects saved progress and
   expect(screen.getByText("Write the next chapter")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Progress" }));
   expect(screen.getByText("The sign-in flow works end to end.")).toBeInTheDocument();
-  expect(screen.getByText(/50% · average reported task completion/)).toBeInTheDocument();
+  expect(within(screen.getByRole("list", { name: "Achieved progress" })).getByText("100% reported complete")).toBeInTheDocument();
   expect(calls.filter(c => c.path.includes("/session/")).every(c => (c.options.headers as Record<string, string>)["Idempotency-Key"])).toBe(true);
 });
 
@@ -191,8 +205,8 @@ it("keeps the queue short and exposes context and later work on demand", async (
   }
   const user = userEvent.setup(); render(<App />);
   const next = await screen.findByRole("region", { name: "Next" });
-  expect(within(next).getAllByRole("listitem")).toHaveLength(3);
-  expect(screen.getByText("Later · 3 more today").closest("details")).not.toHaveAttribute("open");
+  expect(within(next).getAllByRole("listitem")).toHaveLength(2);
+  expect(screen.getByText("Later · 4 more today").closest("details")).not.toHaveAttribute("open");
   await user.click(screen.getByRole("button", { name: "Task context" }));
   const brief = screen.getByRole("region", { name: "Task brief" });
   expect(within(brief).getByText("Milestone · Foundation")).toBeInTheDocument();
@@ -256,6 +270,48 @@ it("walks the complete critical path: Goal -> Plan -> Today -> Focus -> Pause ->
   await user.click(screen.getByRole("button", { name: "Progress" }));
   await screen.findByRole("heading", { name: "Progress" });
   expect(screen.getByText("Implemented sign-in and goal planning seamlessly.")).toBeInTheDocument();
-  expect(screen.getByText("1")).toBeInTheDocument(); // 1 task complete
+  expect(within(screen.getByRole("list", { name: "Achieved progress" })).getByText("100% reported complete")).toBeInTheDocument();
 });
 
+
+
+it("claims overrun once at the grace boundary and does not repeat after refresh or reopening", async () => {
+  const at=Date.now(); data.serverTime=new Date(at).toISOString();
+  Object.assign(data.blocks[0], { state:"active",sessionState:"running",actualStart:new Date(at-600000).toISOString(),runningSince:new Date(at-600000).toISOString(),endTime:new Date(at-300000).toISOString(),overrunPromptedAt:null });
+  const user=userEvent.setup(); const first=render(<App />);
+  expect(await screen.findByText("Still working on this? Wrap up or keep going.")).toBeInTheDocument();
+  await user.click(screen.getByRole("button",{name:"Keep going"}));
+  await user.click(screen.getByRole("button",{name:"Refresh"}));
+  await screen.findByRole("button",{name:"Pause"});
+  expect(screen.queryByText("Still working on this? Wrap up or keep going.")).not.toBeInTheDocument();
+  first.unmount(); render(<App />); await screen.findByRole("button",{name:"Pause"});
+  expect(calls.filter(c=>c.path.endsWith("/overrun"))).toHaveLength(1);
+});
+
+it("restores a paused timer after reopening and excludes terminal work from Now", async () => {
+  Object.assign(data.blocks[0], {state:"active",sessionState:"paused",actualStart:new Date().toISOString(),runningSince:null,activeMillis:125000});
+  const first=render(<App />); expect(await screen.findByLabelText("Active time")).toHaveTextContent("00:02:05");
+  first.unmount(); render(<App />); expect(await screen.findByLabelText("Active time")).toHaveTextContent("00:02:05");
+  expect(screen.getByRole("button",{name:"Resume"})).toBeEnabled();
+});
+
+it("does not surface a completed commitment's stale scheduled block as current work", async () => {
+  data.tasks[0]={...data.tasks[0],workState:"completed",completionPct:100};
+  render(<App />); await screen.findByRole("heading",{name:"Today"});
+  expect(screen.queryByRole("region",{name:"Current task"})).not.toBeInTheDocument();
+  expect(screen.queryByRole("button",{name:"Start"})).not.toBeInTheDocument();
+});
+
+
+it("replays a lost overrun response with the original key after refresh loads the marker", async () => {
+  const at=Date.now(); data.serverTime=new Date(at).toISOString();
+  Object.assign(data.blocks[0], {state:"active",sessionState:"running",actualStart:new Date(at-600000).toISOString(),runningSince:new Date(at-600000).toISOString(),endTime:new Date(at-300000).toISOString(),overrunPromptedAt:null});
+  loseOverrunResponse=true; const user=userEvent.setup(); render(<App />);
+  await screen.findByRole("button",{name:"Pause"});
+  // Advance the next authoritative read beyond the bounded network retry delay.
+  data.serverTime=new Date(at+11000).toISOString();
+  await user.click(screen.getByRole("button",{name:"Refresh"}));
+  expect(await screen.findByText("Still working on this? Wrap up or keep going.")).toBeInTheDocument();
+  const claims=calls.filter(c=>c.path.endsWith("/overrun")); expect(claims).toHaveLength(2);
+  expect(claims[0].options.headers).toEqual(claims[1].options.headers);
+});

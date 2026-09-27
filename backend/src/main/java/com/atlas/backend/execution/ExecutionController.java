@@ -29,4 +29,7 @@ public class ExecutionController {
     @PostMapping(value="/blocks/{id}/session/finish", produces="application/json")
     public String finish(@AuthenticationPrincipal User user, @PathVariable Long id, @RequestHeader("Idempotency-Key") String key,
                          @Valid @RequestBody Report report) { return service.transition(user.getId(), id, "finish", key, report); }
+    @PostMapping(value="/blocks/{id}/session/overrun", produces="application/json")
+    public String overrun(@AuthenticationPrincipal User user, @PathVariable Long id,
+                          @RequestHeader("Idempotency-Key") String key) { return service.overrun(user.getId(), id, key); }
 }

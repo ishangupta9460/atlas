@@ -1,4 +1,5 @@
 import { Workspace } from "./execution";
+import { addDays, dateKey, dayStart } from "./executionTime";
 
 export type DayItem = { key: string; title: string; start: number; end: number; kind: "work" | "fixed"; state: string; taskId: number | null; flexibility: string };
 export function timelineItems(data: Workspace): DayItem[] {
@@ -11,13 +12,12 @@ export function timelineItems(data: Workspace): DayItem[] {
     ...data.fixed.map(f => ({ key: `fixed-${f.id}`, title: f.title, start: Date.parse(f.startTime), end: Date.parse(f.endTime), kind: "fixed" as const, state: "fixed", taskId: null, flexibility: "fixed" })),
   ].sort((a, b) => a.start - b.start || a.key.localeCompare(b.key));
 }
-export function dayBounds(value: number) {
-  const start = new Date(value); start.setHours(0, 0, 0, 0);
-  const end = new Date(start); end.setDate(end.getDate() + 1);
-  return { start: start.getTime(), end: end.getTime() };
+export function dayBounds(value: number, zone?: string | null) {
+  const key = dateKey(value, zone);
+  return { start: dayStart(key, zone), end: dayStart(addDays(key, 1), zone) };
 }
-export function dayItems(items: DayItem[], day: number) {
-  const { start, end } = dayBounds(day);
+export function dayItems(items: DayItem[], day: number, zone?: string | null) {
+  const { start, end } = dayBounds(day, zone);
   return items.filter(item => item.start < end && item.end > start);
 }
 // Gaps describe recorded placement only, never inferred availability or automatic buffers.

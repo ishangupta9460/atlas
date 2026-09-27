@@ -17,7 +17,7 @@ A Focus Session tracks the *actual* runtime execution of one Scheduled Block (`0
 | Not Started | Session created (implicitly, when a Scheduled Block's start time arrives, or explicitly via a user "Start" action) | Block is Now/Next but no execution has begun |
 | Running | User taps Start, or Resume from Paused | Active work is underway; this is the only state in which elapsed time accrues toward the session's actual duration |
 | Paused | User taps Pause while Running | Elapsed time stops accruing; the session is not abandoned — this state exists precisely to cover realistic interruptions (a phone call, a knock at the door) without treating the user as having failed the block |
-| Finished | User taps Finish, or the overrun grace window (§4) elapses without a Finish/extend action | Terminal; triggers the completion report (§5) |
+| Finished | User finishes with the completion report (§5); the non-blocking overrun prompt (§4) never forces this transition | Terminal; freezes execution history |
 
 **Multiple Pause⇄Running cycles are expected, not an edge case** — the state machine explicitly supports "9:00–10:00 research block → interruption at 9:10 → user returns later" without any special-casing: the session simply sits Paused for however long the interruption lasts, then Resumes. No maximum pause count or pause duration is enforced by this state machine itself (an extremely long pause is instead covered by the Forgotten Timer flow, §6, once it's clear the user isn't coming back to that session in any meaningful sense).
 
@@ -39,6 +39,8 @@ The Task Brief is shown again (or remains visible) through Running/Paused — it
 **[STRONGLY INFERRED]** — no document cites `09` §3 by number, so this section introduces no citation conflict; its content is a direct, necessary elaboration of §1's Pause/Resume states and is required to make `ATLAS_SPECIFICATION_REVIEW.md`'s Scenario A verdict ("Handled adequately: Pause/Resume (`09` §1) plus free-form trusted completion report (`09` §5) cover this without requiring the user to justify the gap. No fix needed.") concretely implementable.
 
 While Running or Paused, the session tracks: elapsed active time (accrues only while Running, per §1), a running log of Pause/Resume timestamps (feeding the Actual Session record, §5), and nothing else that requires user input mid-session — no progress checkbox, no interim status prompt. **The user is never asked to justify a pause or explain an interruption while it's happening** — this is the concrete mechanism behind the review's "without requiring the user to justify the gap" verdict: justification, if any, happens once, at Finish, via the free-form completion report (§5), never as a running interrogation.
+
+**P/E/A duration (approved DEC-0018):** Executed sums these accumulated Running intervals, stored as `actual_sessions.active_millis` at Finish. Paused intervals contribute zero. A 60-minute wall-clock session with 10 paused minutes yields 50 minutes Executed. Pause/resume events and immutable Actual Session history remain intact; later completion-belief changes never rewrite them. See `11` §1.
 
 ## 4. Overrun Handling — RESOLVED
 
