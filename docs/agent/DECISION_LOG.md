@@ -1,5 +1,13 @@
 # DECISION_LOG.md — Durable Decision Record
 
+### DEC-0022 — Chunk 4 pattern-detection release scope
+
+- DATE: 2026-09-28; TYPE: Product; STATUS: Approved release scope; thresholds deferred.
+- AUTHORITY: Product-owner Chunk 4 QA remediation request.
+- DECISION: Chunk 4 ships the RESC-011 pattern-detection seam disabled by default;
+  production thresholds remain a deferred product decision.
+- RELATED: RESC-011 remains partial; DEC-0021; 05 section 6.
+
 ### DEC-0021 — Chunk 4 boundaries and unresolved pattern policy
 
 - DATE: 2026-09-28; TYPE: Architectural / implementation, with open product item.

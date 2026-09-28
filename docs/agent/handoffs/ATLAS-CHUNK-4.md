@@ -1,5 +1,49 @@
 # Chunk 4 — Recovery Engine
 
+## QA REMEDIATION — 2026-09-28
+Base: `a930248bc4b80b401f556eb79ae540fc0310d07f` on the existing feature branch.
+User reports NOT READY TO MERGE and requests only two blocker fixes plus explicit
+RESC-011 release scope. These remediation changes must remain **uncommitted**;
+no push, PR or merge. Original implementation record below is historical.
+
+### Scope and files changed
+- `backend/src/main/java/com/atlas/backend/recovery/RecoveryReconciliationJob.java`:
+  catch RuntimeException per owner, log owner ID/failure class without private
+  exception messages/causes, and continue remaining owners. Existing transactional
+  service boundaries stay unchanged.
+- `backend/src/test/java/com/atlas/backend/recovery/RecoveryReconciliationJobTest.java`
+  (new): failures at reset/detect/deferred stages do not block owners A/C or the next
+  cycle; log contains owner/type and excludes private details.
+- `frontend/src/RecoveryPanel.tsx`: a single scheduling-timezone overlap selection
+  drives interruption estimate fields and payload. Strict boundaries exclude touching
+  windows; invalid/incomplete/ambiguous inputs show guidance and no affected fields.
+  Only ready, unstarted scheduled task windows take estimates. Explicit disabled
+  production pattern status is visible; the global Goal Risk hour is unchanged.
+- `frontend/src/RecoveryPanel.test.tsx`: interval updates, overlap/boundaries,
+  unrelated/active/recurring/completed exclusion, exact affected-only UTC payload,
+  invalid/DST inputs and disabled-policy messaging.
+- `docs/agent/DECISION_LOG.md`: DEC-0022 records only the approved disabled-default
+  release scope; no pattern thresholds selected. RESC-011 remains partial.
+- `docs/agent/handoffs/ATLAS-CHUNK-4.md`: this remediation record.
+
+### Verification
+- `mvn -f backend/pom.xml test '-Dtest=Recovery*Test'`: 62 passed, zero failures/errors.
+- `npm test --prefix frontend -- --run src/RecoveryPanel.test.tsx`: 14 passed.
+- `npm test --prefix frontend -- --run`: 53 passed / 9 failed under parallel host
+  load (timeouts and subsequent cross-test interaction).
+- `npm test --prefix frontend -- --run --maxWorkers=1 --minWorkers=1`: all 62 passed
+  in 8 files; no assertions or timeouts changed.
+- `npm run build --prefix frontend`: passed (TypeScript and Vite production bundle).
+- Full backend and real browser smoke pending.
+- Independent read-only review found no actionable issues in the scoped fixes;
+  reviewer did not run tests. No API/schema changes or unrelated edits.
+
+### Remaining work / next step
+Finish full regression and browser verification, inspect final diff, then hand back
+the uncommitted changes for independent QA. Pattern thresholds remain a deferred
+product decision (DEC-0022); the nonblocking global Goal Risk hour UI limitation
+remains intentionally unchanged. No additional architecture decision required.
+
 ## TASK
 RESC-001–013: recovery using existing deterministic scheduling, execution and events.
 Starting develop: `6e65ec8fdb908453c60bbc2b50378ac9eea1f747`.

@@ -12,6 +12,45 @@ function setup(state: object = empty, workspace = data) {
   return mock;
 }
 describe("recovery choices", () => {
+  it("reports that unconfigured production patterns await approved policy", async () => {
+    setup({ ...empty, patterns: { configured: false, observations: [] } });
+    expect(await screen.findByText("Production pattern observations are awaiting approved evidence policy.")).toBeInTheDocument();
+  });
+  it("shows only overlapping unstarted work, updates boundaries, and submits only affected blocks in the scheduling timezone", async () => {
+    const tasks = ["Before", "Overlap", "After", "Active", "Completed"].map((title, i) => ({ ...data.tasks[0], id: i + 1, title, workState: i === 4 ? "completed" : "ready" }));
+    const blocks = tasks.map((t, i) => ({ ...data.blocks[0], id: i + 10, commitmentId: t.id, state: i === 3 ? "active" : "scheduled",
+      startTime: `2026-09-21T${i === 0 ? "09" : i === 2 ? "11" : "10"}:00:00Z`, endTime: `2026-09-21T${i === 0 ? "10" : i === 2 ? "12" : "11"}:00:00Z` }));
+    blocks.push({ ...blocks[1], id: 99, commitmentId: 0 }); // Recurring windows do not take task estimates.
+    const mock = setup(empty, { ...data, timezone: "Asia/Kolkata", tasks, blocks });
+    const start = screen.getByLabelText("Unavailable from"), end = screen.getByLabelText("Until");
+    expect(screen.queryByLabelText(/Total estimate for/)).not.toBeInTheDocument();
+    fireEvent.change(start, { target: { value: "2026-09-21T15:30" } });
+    expect(screen.queryByLabelText(/Total estimate for/)).not.toBeInTheDocument();
+    fireEvent.change(end, { target: { value: "2026-09-21T16:30" } });
+    expect(screen.getAllByLabelText(/Total estimate for/)).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText("Total estimate for Overlap (minutes)"), { target: { value: "30" } });
+    expect(screen.queryByLabelText("Total estimate for Before (minutes)")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Total estimate for After (minutes)")).not.toBeInTheDocument();
+    fireEvent.change(end, { target: { value: "2026-09-21T17:30" } });
+    expect(screen.getByLabelText("Total estimate for After (minutes)")).toBeInTheDocument();
+    fireEvent.change(start, { target: { value: "2026-09-21T16:30" } });
+    expect(screen.queryByLabelText("Total estimate for Overlap (minutes)")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Total estimate for After (minutes)"), { target: { value: "45" } });
+    fireEvent.click(screen.getByText("Record interruption"));
+    await waitFor(() => expect(mock).toHaveBeenCalledWith("/recovery/interruption", expect.objectContaining({ body: JSON.stringify({ startTime: "2026-09-21T11:00:00.000Z", endTime: "2026-09-21T12:00:00.000Z", items: [{ blockId: 12, totalWorkMinutes: 45 }] }) })));
+    fireEvent.change(end, { target: { value: "2026-09-21T15:30" } });
+    expect(screen.queryByLabelText(/Total estimate for/)).not.toBeInTheDocument();
+    fireEvent.submit(start.closest("form")!);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Choose a valid, unambiguous interval");
+    expect(mock.mock.calls.filter(c => c[0] === "/recovery/interruption")).toHaveLength(1);
+  });
+  it.each(["2026-03-08T02:30", "2026-11-01T01:30"])("handles nonexistent or ambiguous local time %s without affected fields", value => {
+    setup(empty, { ...data, timezone: "America/New_York" });
+    fireEvent.change(screen.getByLabelText("Unavailable from"), { target: { value } });
+    fireEvent.change(screen.getByLabelText("Until"), { target: { value: value.slice(0, 10) + "T04:00" } });
+    expect(screen.queryByLabelText(/Total estimate for/)).not.toBeInTheDocument();
+    expect(screen.getByText("Enter a valid, unambiguous interval to see affected work.")).toBeInTheDocument();
+  });
   it("surfaces a periodic batch suggestion without reactivating work", async () => {
     const mock = setup({ ...empty, deferredReview: { proposedAt: data.serverTime, reason: "Review these seven deferred tasks together." } });
     expect(await screen.findByText(/Review these seven deferred tasks together/)).toBeInTheDocument();

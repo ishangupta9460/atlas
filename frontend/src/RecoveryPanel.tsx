@@ -38,6 +38,11 @@ export default function RecoveryPanel({ client, data, refresh, now = Date.parse(
   const candidates = data.blocks.filter(b => !state?.claimedBlocks.includes(b.id) && data.tasks.some(t => t.id === b.commitmentId && t.workState === "ready")
     && (b.state === "unresolved" || b.state === "completed" || (b.state === "scheduled" && Date.parse(b.endTime) <= Date.parse(data.serverTime))));
   const selected = candidates.filter(b => Number(minutes[b.id]) > 0);
+  const interruptionStart = localInput(start, data.timezone), interruptionEnd = localInput(end, data.timezone);
+  const validInterruption = Number.isFinite(interruptionStart) && Number.isFinite(interruptionEnd) && interruptionEnd > interruptionStart;
+  const affected = validInterruption ? data.blocks.filter(b => b.state === "scheduled" && b.commitmentId && !b.sessionState
+    && data.tasks.some(t => t.id === b.commitmentId && t.workState === "ready")
+    && Date.parse(b.startTime) < interruptionEnd && Date.parse(b.endTime) > interruptionStart) : [];
   const goals: [number, string | null][] = state?.goals?.map(g => [g.id, g.title]) ?? [...new Map(data.tasks.filter(t => t.goalId).map(t => [t.goalId!, t.goalTitle])).entries()];
   const deferred = data.tasks.filter(t => t.workState === "deferred");
   const taskName = (id: number) => data.tasks.find(t => t.id === id)?.title ?? "Work";
@@ -49,6 +54,7 @@ export default function RecoveryPanel({ client, data, refresh, now = Date.parse(
     <h2>Continue from what happened</h2><p>Review missed windows, remaining work and choices that need your input.</p>
     {state?.deferredReview && <p>Deferred backlog review · {date(state.deferredReview.proposedAt, data.timezone)}: {state.deferredReview.reason}</p>}
     {state?.patterns?.observations.map((f, i) => <p key={i}>Around {f.localHour}:00: {f.observation.message} Your preferences have not changed.</p>)}
+    {state?.patterns?.configured === false && <p>Production pattern observations are awaiting approved evidence policy.</p>}
     {error && <p role="alert" className="error">{error}</p>}{notice && <p role="status">{notice}</p>}
     <button disabled={busy} onClick={() => void mutate("/recovery/detect", {}, "Passed windows checked. An unstarted timer does not tell us what happened.")}>Check passed windows</button>
     {candidates.map(b => {
@@ -73,13 +79,13 @@ export default function RecoveryPanel({ client, data, refresh, now = Date.parse(
       <button disabled={busy} onClick={() => void mutate(`/recovery/${d.id}/response`, { accept: false }, "Proposal dismissed. Work remains available.")}>Dismiss proposal</button><p>No response leaves this proposal unapplied.</p>
     </article>)}
     <details><summary>Report unavailable time</summary><form onSubmit={e => {
-      e.preventDefault(); const a = localInput(start, data.timezone), z = localInput(end, data.timezone);
-      if (!Number.isFinite(a) || !Number.isFinite(z) || z <= a) { setError("Choose a valid, unambiguous interval in your scheduling timezone."); return; }
-      const affected = data.blocks.filter(b => b.state === "scheduled" && b.commitmentId && Date.parse(b.startTime) < z && Date.parse(b.endTime) > a);
-      void mutate("/recovery/interruption", { startTime: new Date(a).toISOString(), endTime: new Date(z).toISOString(), items: affected.map(b => ({ blockId: b.id, totalWorkMinutes: Number(minutes[b.id]) })) }, "Unavailable time recorded. Review affected work; active sessions and recurring windows remain for your attention.");
+      e.preventDefault();
+      if (!validInterruption) { setError("Choose a valid, unambiguous interval in your scheduling timezone."); return; }
+      void mutate("/recovery/interruption", { startTime: new Date(interruptionStart).toISOString(), endTime: new Date(interruptionEnd).toISOString(), items: affected.map(b => ({ blockId: b.id, totalWorkMinutes: Number(minutes[b.id]) })) }, "Unavailable time recorded. Review affected work; active sessions and recurring windows remain for your attention.");
     }}><p>Times use {data.timezone ?? "your scheduling timezone"}. Fixed commitments stay in place.</p>
       <label>Unavailable from<input type="datetime-local" required value={start} onChange={e => setStart(e.target.value)} /></label><label>Until<input type="datetime-local" required value={end} onChange={e => setEnd(e.target.value)} /></label>
-      {data.blocks.filter(b => b.state === "scheduled" && b.commitmentId).map(b => <label key={b.id}>Total estimate for {taskName(b.commitmentId)} (minutes)<input type="number" min="1" max="1440" value={minutes[b.id] ?? ""} onChange={e => setMinutes(v => ({ ...v, [b.id]: e.target.value }))} /></label>)}
+      <p>{!validInterruption ? "Enter a valid, unambiguous interval to see affected work." : affected.length ? "Affected unstarted task windows:" : "No unstarted task windows overlap this interval."}</p>
+      {affected.map(b => <label key={b.id}>Total estimate for {taskName(b.commitmentId)} (minutes)<input required type="number" min="1" max="1440" value={minutes[b.id] ?? ""} onChange={e => setMinutes(v => ({ ...v, [b.id]: e.target.value }))} /></label>)}
       <button disabled={busy}>Record interruption</button></form></details>
     <details><summary>Review deferred work ({deferred.length})</summary><p>These tasks remain yours. Returning them to active planning does not guarantee a slot; scheduling will check current capacity and constraints.</p>
       <ul>{deferred.map(t => <li key={t.id}>{t.title} · {t.importance} importance</li>)}</ul>
