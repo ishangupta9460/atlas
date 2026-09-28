@@ -29,6 +29,15 @@ public class Commitment {
     @Column(name="current_completion_pct", nullable=false, precision=5, scale=2) private BigDecimal currentCompletionPct = new BigDecimal("0.00");
     @Convert(converter=UtcInstantConverter.class) @Column(name="created_at", nullable=false, updatable=false) private Instant createdAt;
     protected Commitment() { }
+    /** Transient scheduler adapter only. Never persisted as a Commitment or exposed as one. */
+    public static Commitment recurringSchedulingView(long key, Long owner, Long goal, Long category,
+                                                     String importance, String flexibility, Instant created) {
+        if(key>=0 || !IMPORTANCE.contains(importance) || !FLEXIBILITY.contains(flexibility))
+            throw new IllegalArgumentException("Invalid recurring scheduling context");
+        var value=new Commitment(); value.id=key; value.userId=owner; value.goalId=goal;
+        value.categoryId=category; value.importance=importance; value.flexibilityTier=flexibility;
+        value.workState="ready"; value.createdAt=created; return value;
+    }
     static Commitment create(Long owner, Fields fields) {
         if (owner == null) throw CommitmentException.invalid("Owner required");
         Commitment value = new Commitment();
@@ -69,6 +78,19 @@ public class Commitment {
         if (percentage == null || percentage.signum() < 0 || percentage.compareTo(new BigDecimal("100")) > 0)
             throw CommitmentException.invalid("Completion must be between 0 and 100");
         currentCompletionPct = percentage.setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+    void reportRetrospectively(BigDecimal percentage) {
+        if (!"ready".equals(workState)) throw CommitmentException.state();
+        reportProgress(percentage);
+        if (currentCompletionPct.compareTo(new BigDecimal("100")) == 0) workState="completed";
+    }
+    void deferForRecovery() {
+        if (!"ready".equals(workState)) throw CommitmentException.state();
+        workState="deferred";
+    }
+    void reactivateForRecovery() {
+        if (!"deferred".equals(workState)) throw CommitmentException.state();
+        workState="ready";
     }
     static Instant normalize(Instant value) {
         if (value == null) return null;

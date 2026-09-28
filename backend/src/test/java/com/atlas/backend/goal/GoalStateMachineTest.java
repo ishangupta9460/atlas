@@ -20,6 +20,7 @@ import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class GoalStateMachineTest {
+    @org.mockito.Mock org.springframework.jdbc.core.JdbcTemplate locks;
     @Mock private GoalRepository goalRepository;
     @Mock private EventRepository eventRepository;
     @InjectMocks private GoalService goalService;

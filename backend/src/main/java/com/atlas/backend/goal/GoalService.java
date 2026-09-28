@@ -14,10 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class GoalService {
     private final GoalRepository goalRepository;
     private final EventRepository eventRepository;
+    private final org.springframework.jdbc.core.JdbcTemplate locks;
     private final ObjectMapper payloadMapper = new ObjectMapper();
 
-    public GoalService(GoalRepository goalRepository, EventRepository eventRepository) {
-        this.goalRepository = goalRepository;
+    public GoalService(GoalRepository goalRepository, EventRepository eventRepository, org.springframework.jdbc.core.JdbcTemplate locks) {
+        this.goalRepository = goalRepository; this.locks=locks;
         this.eventRepository = eventRepository;
     }
 
@@ -45,6 +46,7 @@ public class GoalService {
 
     @Transactional
     public GoalResponse update(Long userId, Long goalId, UpdateGoalRequest request) {
+        locks.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE",Long.class,userId);
         Goal goal = findOwnedGoal(userId, goalId);
         Map<String, Object> before = snapshot(goal);
         goal.update(request.getTitle(), request.getTargetDeadline(), request.isTargetDeadlineProvided());
@@ -56,6 +58,7 @@ public class GoalService {
     /** Explicit user completion; no automatic roadmap trigger exists until Roadmap is implemented. */
     @Transactional
     public GoalResponse complete(Long userId, Long goalId) {
+        locks.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE",Long.class,userId);
         Goal goal = findOwnedGoal(userId, goalId);
         requireLifecycle(goal, Goal.ACTIVE, "Only active goals can be completed");
         goal.complete();
@@ -65,6 +68,7 @@ public class GoalService {
 
     @Transactional
     public GoalResponse abandon(Long userId, Long goalId) {
+        locks.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE",Long.class,userId);
         Goal goal = findOwnedGoal(userId, goalId);
         requireLifecycle(goal, Goal.ACTIVE, "Only active goals can be abandoned");
         goal.abandon();
@@ -75,6 +79,7 @@ public class GoalService {
     /** Internal scheduling hook; deliberately not exposed as an API endpoint in DOM-001. */
     @Transactional
     public GoalResponse defer(Long userId, Long goalId) {
+        locks.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE",Long.class,userId);
         Goal goal = findOwnedGoal(userId, goalId);
         requirePlanning(goal, Goal.ACTIVE, "Only active goals can be deferred");
         goal.defer();
@@ -86,6 +91,7 @@ public class GoalService {
     /** Internal scheduling hook; deliberately not exposed as an API endpoint in DOM-001. */
     @Transactional
     public GoalResponse reactivate(Long userId, Long goalId) {
+        locks.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE",Long.class,userId);
         Goal goal = findOwnedGoal(userId, goalId);
         requirePlanning(goal, Goal.DEFERRED, "Only deferred goals can be reactivated");
         goal.reactivate();
@@ -97,6 +103,7 @@ public class GoalService {
     /** Internal Goal Risk hook; deliberately not exposed until the risk calculator exists. */
     @Transactional
     public GoalResponse markAtRisk(Long userId, Long goalId) {
+        locks.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE",Long.class,userId);
         Goal goal = findOwnedGoal(userId, goalId);
         if (!Goal.ACTIVE.equals(goal.getPlanningState()) && !Goal.DEFERRED.equals(goal.getPlanningState())) {
             throw new InvalidGoalStateException("Only active or deferred goals can be marked at risk");
@@ -109,6 +116,7 @@ public class GoalService {
 
     @Transactional
     public GoalResponse resolveRisk(Long userId, Long goalId) {
+        locks.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE",Long.class,userId);
         Goal goal = findOwnedGoal(userId, goalId);
         requirePlanning(goal, Goal.AT_RISK, "Only at-risk goals can have risk resolved");
         goal.resolveRisk();
@@ -118,6 +126,7 @@ public class GoalService {
 
     @Transactional
     public GoalResponse pause(Long userId, Long goalId) {
+        locks.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE",Long.class,userId);
         Goal goal = findOwnedGoal(userId, goalId);
         requirePlanning(goal, Goal.AT_RISK, "Only at-risk goals can be paused");
         goal.pause();
@@ -128,6 +137,7 @@ public class GoalService {
     /** Explicit user resume transition; no DOM-001 API route was specified for it. */
     @Transactional
     public GoalResponse resume(Long userId, Long goalId) {
+        locks.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE",Long.class,userId);
         Goal goal = findOwnedGoal(userId, goalId);
         requirePlanning(goal, Goal.PAUSED, "Only paused goals can be resumed");
         goal.resume();

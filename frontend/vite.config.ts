@@ -16,6 +16,9 @@ export default defineConfig({
       "/execution": "http://localhost:8080",
       "/schedule": "http://localhost:8080",
       "/blocks": "http://localhost:8080",
+      "/recovery": "http://localhost:8080",
+      "/recurring-intentions": "http://localhost:8080",
+      "/users": "http://localhost:8080",
     },
   },
 });

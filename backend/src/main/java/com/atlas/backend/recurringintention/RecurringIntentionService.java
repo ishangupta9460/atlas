@@ -16,13 +16,16 @@ public class RecurringIntentionService {
     private final GoalRepository goalRepository;
     private final CategoryRepository categoryRepository;
     private final EventRepository eventRepository;
+    private final org.springframework.jdbc.core.JdbcTemplate locks;
+    private final RecurringIntentionResetJob resets;
+    private final com.atlas.backend.execution.ExecutionClock clock;
 
     public RecurringIntentionService(RecurringIntentionRepository recurringIntentionRepository,
-                                     GoalRepository goalRepository, CategoryRepository categoryRepository, EventRepository eventRepository) {
+                                     GoalRepository goalRepository, CategoryRepository categoryRepository, EventRepository eventRepository, org.springframework.jdbc.core.JdbcTemplate locks, RecurringIntentionResetJob resets,com.atlas.backend.execution.ExecutionClock clock) {
         this.recurringIntentionRepository = recurringIntentionRepository;
         this.goalRepository = goalRepository;
         this.categoryRepository = categoryRepository;
-        this.eventRepository = eventRepository;
+        this.eventRepository = eventRepository; this.locks=locks; this.resets=resets;this.clock=clock;
     }
 
     @Transactional
@@ -41,6 +44,8 @@ public class RecurringIntentionService {
     /** A changed target deliberately applies at the next weekly reset, not retroactively this week. */
     @Transactional
     public RecurringIntentionResponse updateTarget(Long userId, Long id, UpdateRecurringIntentionTargetRequest request) {
+        locks.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE",Long.class,userId);
+        resets.reconcile(userId);
         RecurringIntention intention = findOwned(userId, id);
         intention.updateTarget(request.targetCountPerWeek());
         writeEvent(intention, "recurring_intention.target_updated", "user", null);
@@ -49,14 +54,20 @@ public class RecurringIntentionService {
 
     @Transactional
     public RecurringIntentionResponse completeInstance(Long userId, Long id) {
+        locks.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE",Long.class,userId);
+        resets.reconcile(userId);
         RecurringIntention intention = findOwned(userId, id);
         intention.completeInstance();
-        writeEvent(intention, "recurring_intention.instance_completed", "user", null);
+        recurringIntentionRepository.flush();
+        eventRepository.append(Event.forEntity("recurring_intention",id,"recurring_intention.instance_completed","user",null,
+            "{\"reportedAt\":\""+clock.now()+"\"}"));
         return RecurringIntentionResponse.from(intention);
     }
 
     @Transactional
     public RecurringIntentionResponse reportMissedInstance(Long userId, Long id) {
+        locks.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE",Long.class,userId);
+        resets.reconcile(userId);
         RecurringIntention intention = findOwned(userId, id);
         writeEvent(intention, "recurring_intention.instance_missed", "user", null);
         return RecurringIntentionResponse.from(intention);
@@ -65,6 +76,7 @@ public class RecurringIntentionService {
     /** Internal operational hook; no scheduler or public route exists yet. */
     @Transactional
     public RecurringIntentionResponse resetForNewWeek(Long userId, Long id) {
+        locks.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE",Long.class,userId);
         RecurringIntention intention = findOwned(userId, id);
         intention.resetForNewWeek();
         writeEvent(intention, "recurring_intention.reset", "atlas", "A new week began; the recurring weekly target was reset in full without carrying prior-week backlog.");

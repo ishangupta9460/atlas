@@ -15,6 +15,11 @@ public final class SchedulingPlanner {
     public Plan plan(List<Commitment> owned, List<CommitmentDependency> edges, Set<Long> atRiskGoals,
                      Set<Long> alreadyScheduled, Map<Long, Integer> minutes, Long instruction,
                      SchedulingFoundationService.Snapshot calendar, List<SlotSelection.Context> initialContext) {
+        return plan(owned,edges,atRiskGoals,alreadyScheduled,minutes,instruction,calendar,initialContext,false);
+    }
+    public Plan plan(List<Commitment> owned, List<CommitmentDependency> edges, Set<Long> atRiskGoals,
+                     Set<Long> alreadyScheduled, Map<Long, Integer> minutes, Long instruction,
+                     SchedulingFoundationService.Snapshot calendar, List<SlotSelection.Context> initialContext,boolean reviewDeferred) {
         var snapshot = new HashMap<Long, Commitment>();
         owned.forEach(c -> snapshot.put(c.getId(), c));
         var blocked = new HashSet<Long>();
@@ -24,7 +29,7 @@ public final class SchedulingPlanner {
         }
         var pool = new ArrayList<WorkRanking.Candidate>();
         for (var c : Stage0HardConstraintGate.movable(owned)) {
-            if (!minutes.containsKey(c.getId()) || !"ready".equals(c.getWorkState())
+            if (!minutes.containsKey(c.getId()) || !("ready".equals(c.getWorkState()) || (reviewDeferred && "deferred".equals(c.getWorkState())))
                     || alreadyScheduled.contains(c.getId()) || blocked.contains(c.getId())) continue;
             var signal = Stage5DependencyTier.evaluate(c, edges, snapshot);
             if (signal.cycleDetected()) continue;

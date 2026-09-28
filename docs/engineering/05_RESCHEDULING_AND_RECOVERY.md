@@ -44,6 +44,12 @@ Recurring Intentions do not follow §2–3. Per Master Spec §1.16:
 
 **Presented options on At Risk:** increase effort, extend deadline, reduce scope, change method, defer/pause. If the user does not respond, Atlas continues producing the best practical schedule with available data while keeping the At Risk flag visibly active (never hidden, never silently resolved).
 
+**Approved launch threshold (DEC-0020, 2026-09-27):** default confidence threshold
+is **0.80**, externally configurable. Classification is At Risk only for computed
+confidence **strictly below** the configured threshold. Exactly 0.80 at the launch
+default is not At Risk. Persist the threshold used with each snapshot and use this
+same comparison for transitions, tests and explanations; no second threshold applies.
+
 **Boundary condition:** an At-Risk goal's Stage 4 protective boost never outranks a genuine Stage 0–2 item (`04` §2). A goal may remain At Risk indefinitely if real hard-consequence deadlines keep legitimately winning contested time — this is correct, honest behavior, not a defect (Master Spec §1.17).
 
 ## 6. Pattern Detection
@@ -80,4 +86,12 @@ Not a mechanical stage-number mapping. Atlas's own daily determination, informed
 
 ## 10. Genuine Gaps / Requires Product Decision
 
-*(Both items previously listed here — the At-Risk threshold and the deferred-item overload behavior — are resolved. See §5 and §8 above respectively.)*
+The launch risk threshold is resolved by the product owner (DEC-0020), not supplied
+by the original specification. Deferred overload behavior is resolved by §8.
+
+**RESC-011 remains partial:** §6 defines evidence standards and examples but no
+production minimum weeks, sample count or ratio. The detector requires explicit
+settings and is disabled without all three. Test values do not establish policy.
+See DEC-0021. Missing contextual history likewise cannot supply a supported risk
+confidence: evaluation is unavailable without a synthetic rate or snapshot, except
+for determinate zero-work/zero-capacity cases. A cold-start fallback needs a product decision.
