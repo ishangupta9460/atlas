@@ -9,7 +9,7 @@ export type Work = {
 export type Block = {
   id: number; commitmentId: number; startTime: string; endTime: string; state: string; placementReason: string;
   sessionState: "running" | "paused" | "finished" | null; actualStart: string | null; runningSince: string | null; activeMillis: number;
-  userMovedFlag?: boolean; overrunPromptedAt?: string | null;
+  userMovedFlag?: boolean; overrunPromptedAt?: string | null; recurringIntentionId?: number | null; title?: string;
 };
 export type History = {
   blockId: number; commitmentId: number; title: string; startTime: string; endTime: string;
@@ -19,6 +19,7 @@ export type Workspace = {
   serverTime: string; tasks: Work[]; blocks: Block[];
   fixed: { id: number; title: string; startTime: string; endTime: string }[]; history: History[];
   timezone?: string | null;
+  riskGoalIds?: number[];
   progress?: { plannedMillis: number; executedMillis: number; achieved: { commitmentId: number; goalId: number | null; title: string | null; completionPct: number }[] };
 };
 export const label = (s: string) => s.replace(/_/g, " ");

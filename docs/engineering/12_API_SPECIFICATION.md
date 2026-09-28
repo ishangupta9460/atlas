@@ -499,3 +499,56 @@ Owner serialization, commitment row locks, block inserts, `block.generated` atla
 reason events and the response record share one transaction. Empty results also
 replay unchanged. An explicit planning window is authoritative, with no implicit
 clock adjustment; identical snapshots and inputs produce identical decisions.
+
+## Chunk 4 recovery contract (DEC-0020/0021)
+
+All routes require JWT identity. Mutation routes below require `Idempotency-Key`,
+except reconciliation calls whose logical identity is the block or recurring week.
+Missing/foreign entities are rejected; no body userId controls ownership. State,
+replay responses and Event Log entries share the caller transaction. Invalid input
+is 400, missing/foreign entities 404, stale/inapplicable state 409.
+
+| Method | Route | Request / result |
+|---|---|---|
+| GET | `/recovery/workspace` | Pending decisions, visible risk reviews, current recurring counts, reported/claimed block IDs, owned goal choices and configured pattern observations |
+| POST | `/recovery/detect` | No body fields; returns newly unresolved block IDs; repeated detection emits nothing |
+| POST | `/blocks/{id}/report` | `{outcome: completed\|partial\|skipped, report, completionPct}` for an ended unstarted Commitment or recurring window; no ActualSession/timestamps fabricated; skipped preserves prior belief; completed recurring reports count only against their own week |
+| POST | `/recovery` | `{items:[{blockId,totalWorkMinutes}]}`; progress determines remaining work; returns `{id,state,proposal,blocks}` |
+| POST | `/recovery/{id}/response` | `{accept:boolean}`; pending proposal only, fresh suitability/scope validation; rejection releases claims |
+| POST | `/recovery/interruption` | `{startTime,endTime,items:[{blockId,totalWorkMinutes}]}`; explicit UTC interval up to seven days, estimates for exactly affected unstarted task windows; returns reservation, affected IDs, needs-user-action IDs and recovery decision |
+| GET | `/recovery/deferred` | One owned deferred-task batch; no deletion or automatic optimization |
+| POST | `/recovery/deferred/preview` | Scheduling request `{startTime,endTime,work:[{commitmentId,workMinutes}]}`; read-only feasibility preview of deferred work using the shared planner |
+| POST | `/recovery/deferred/reactivate` | Array of owned deferred commitment IDs; returns them to Ready without placing blocks |
+| GET | `/goals/{id}/risk` | Latest immutable calculation plus current pending-review/planning state, or null if never evaluated |
+| POST | `/goals/{id}/risk` | `{estimates:[{commitmentId,totalWorkMinutes,localHour}],recurringEstimates:[{recurringIntentionId,remainingWorkMinutes,localHour}]}`; exact incomplete goal work and linked recurring intentions must be covered |
+| POST | `/goals/{id}/risk/response` | `{option,note,deadline?,estimates?}`; five options `increase_effort`, `extend_deadline`, `reduce_scope`, `change_method`, `defer_pause`; only explicit pause pauses; missing optional estimates reuse prior inputs |
+| POST | `/recovery/weekly-reset` | Idempotent per owned recurring intention/local Monday; no prior-week debt |
+| POST | `/schedule/recurring` | `{work:[{recurringIntentionId,workMinutes,importance}]}`; current-week outstanding instances through the existing Stage 0–8 planner; explicit work minutes and importance, no permanent estimate/default changes |
+
+Recovery preview times may advance on approval. Approval remains bounded to the same
+selected tasks, work durations, deferrals and tier; otherwise a fresh review is
+required. Fixed/Protected changes never execute autonomously. Active sessions and
+recurring windows affected by interruptions remain visible for user action.
+
+Risk snapshots expose remaining effort, realistic capacity, deadline horizon,
+contextual sample/completion counts, confidence, threshold and result. Below the
+configured threshold (launch 0.80) is At Risk; equality is feasible. Missing required
+history returns 409 without creating an invented snapshot. Calculated risk is visible
+while formal goal state awaits acknowledgment. Passive re-evaluation never clears an
+unanswered review. Responses record choices; effort/method/scope notes do not edit
+working hours or task scope automatically.
+
+Execution workspace blocks add nullable `recurringIntentionId` and source `title`.
+Existing Start/Pause/Resume/Finish routes support recurring instances; completion
+changes only the instance's own current-week count and keeps ActualSession immutable.
+Recurring generation does not carry unresolved prior-week instances as new debt.
+A configurable periodic reconciliation job runs detection and weekly reset using the
+same transactional services. Tests disable its wall-clock trigger only.
+It also produces a Collaborative deferred-review suggestion in the recovery workspace:
+`deferredReview` contains the count, proposal time and reason. The implementation-tunable
+volume/cadence defaults are seven items/seven days (05 section 8, DEC-0021); the job
+does not reactivate, delete or individually notify deferred tasks.
+
+Pattern observations are read-only, neutral statements. They appear only when all
+three explicit settings `atlas.recovery.pattern.minimum-weeks`, `minimum-instances`
+and `missed-ratio` are configured. There is deliberately no production default.

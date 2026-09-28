@@ -1,5 +1,77 @@
 # DECISION_LOG.md — Durable Decision Record
 
+### DEC-0022 — Chunk 4 pattern-detection release scope
+
+- DATE: 2026-09-28; TYPE: Product; STATUS: Approved release scope; thresholds deferred.
+- AUTHORITY: Product-owner Chunk 4 QA remediation request.
+- DECISION: Chunk 4 ships the RESC-011 pattern-detection seam disabled by default;
+  production thresholds remain a deferred product decision.
+- RELATED: RESC-011 remains partial; DEC-0021; 05 section 6.
+
+### DEC-0021 — Chunk 4 boundaries and unresolved pattern policy
+
+- DATE: 2026-09-28; TYPE: Architectural / implementation, with open product item.
+- AUTHORITY: Product-owner Chunk 4 brief: implement RESC-001–013, preserve contextual
+  Goal Risk, isolate unspecified pattern defaults, do not push or merge.
+- Recovery reuses SchedulingPipeline preview/persistence and Stage 0–8. Owner locks
+  serialize recovery, execution, goal changes and recurring operations. Interruption
+  reserves unavailable time through existing Fixed Commitment CRUD, then previews
+  local correction. Active sessions, fixed constraints and recurring windows are
+  never silently moved; consequential task changes wait for approval.
+- DEC-0017 estimates remain explicit request inputs. Recovery uses total estimate
+  times remaining completion fraction, rounded up to whole work minutes, not elapsed
+  timer time. Recurring scheduling adapts transient instances into the shared planner;
+  it never persists fake Commitments, and takes explicit duration and importance.
+  Recurring Goal Risk takes explicit remaining effort through the goal deadline,
+  without inventing a partial-week allocation rule.
+- Contextual evidence is a bounded read seam over execution/scheduled history, grouped
+  by category/local-hour, or linked recurring intention/local-hour. Recovered misses
+  remain in the denominator. The rolling history window is configurable (84 days
+  initially). The numerator follows 11 section 5: Actual Sessions reporting completion;
+  retrospective reports never fabricate timer records.
+- Adjusted effort = sum(remaining effort / contextual rate); confidence =
+  min(1, realistic capacity / adjusted effort). The persisted equivalent rate is
+  effort-weighted harmonic, not a global user average. A zero observed rate with
+  unfinished work yields zero confidence; zero work is feasible; zero capacity with
+  unfinished work is at risk. No statistical calibration beyond observed ratios is
+  claimed. Capacity uses the existing foundation, local-day boundaries and accounts
+  for already-reserved goal work without subtracting those reservations twice.
+  The product-owner launch threshold comes from DEC-0020, not the source spec.
+- Missing required contextual evidence returns 409 evaluation unavailable; no fake
+  rate or risk snapshot. A desired cold-start fallback requires a product decision.
+  Formal At-Risk state remains acknowledgment-gated per 02 section 2.2. Pending risk
+  remains visible. Effort/scope/method responses record choices; they do not fabricate
+  task edits. Silence never pauses, abandons or resolves a goal.
+- Recovery approval authorizes rerunning the stated progressive search. Displayed
+  times are previews; selected work, durations, deferrals and tier must remain within
+  the approved scope. Changed scope returns 409 for a fresh review.
+- **OPEN PRODUCT DECISION / RESC-011 PARTIAL:** production minimum weeks, sample count
+  and missed ratio are unspecified. All three settings must be supplied explicitly;
+  no default production observation is enabled. Test values are examples only.
+  Observations never write preferences, targets or future scheduling defaults.
+- A periodic job invokes idempotent detection/reset and batched deferred review. Spec
+  05 section 8 explicitly permits implementation-tunable count/cadence: initial
+  defaults are seven deferred items and seven days between Collaborative suggestions,
+  externalized as `atlas.recovery.deferred-review.minimum-count` / `interval-days`.
+  A saved event prevents repeated triggers; one workspace suggestion covers the batch.
+  This is separate from the unresolved product policy for pattern detection.
+  Tests drive those same services
+  with a controlled clock. Deferred review is a contextual batch, with read-only
+  capacity preview and explicit reactivation. Legacy cutover, AI, notification delivery,
+  analytics dashboards, preference learning and undo remain deferred.
+
+### DEC-0020 — Goal Risk launch confidence threshold
+
+- DATE: 2026-09-27; TYPE: Product; STATUS: Approved.
+- AUTHORITY: Product owner explicitly approved 0.80 in the Chunk 4 implementation chat.
+- DECISION: Automatic Goal Risk classification is `at_risk` exactly when computed
+  feasibility/confidence is strictly below the configured threshold. Launch default
+  is 0.80; exactly 0.80 and values above it are not At Risk.
+- The default is externally configurable, not a permanent hardcoded policy. Use one
+  threshold consistently in calculation, snapshots, transitions, API/UI explanations
+  and tests. No separate transition threshold or hysteresis is authorized.
+- RELATED: RESC-007/008; `05_RESCHEDULING_AND_RECOVERY.md` §5.
+
 Important decisions about Atlas's product, architecture, or
 implementation must not live only in chat messages, agent memory, Jira
 comments, or local session context. All of those are ephemeral relative

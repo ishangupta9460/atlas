@@ -115,3 +115,22 @@ with the corresponding Event Log entry and existing execution_idempotency replay
 in the same transaction. Finished runtime and Actual Session facts are not changed by a claim.
 No second session/report model, legacy conversion, destructive DDL or historical migration
 edit is introduced. Fresh and populated-upgrade tests preserve existing session and V2 data.
+
+## Chunk 4 physical mapping — V14–V16
+
+V14 expands the scheduled-block lifecycle CHECK with unresolved/cancelled without
+rewriting historical rows. The Java migration selects MySQL/H2 CHECK syntax.
+V15 adds owned recovery_decisions (request/proposal/reason/tier/state) and one unique
+recovery_block_claim per source block. Dismissal releases the claim; applied claims
+prevent duplicate recovery. No second scheduled-block or Event Log model is added.
+V16 adds append-only goal_risk_snapshots with UTC calculation time, estimates,
+contextual rate, confidence/threshold, result, transition marker and immutable JSON
+evidence. goal_risk_reviews holds mutable pending acknowledgment state separately.
+Snapshots are never updated. The schema reserves insufficient_evidence, but current
+APIs do not persist a confidence/snapshot without required history (DEC-0021).
+V16 also adds nullable recurring_intentions.reset_week_start; UTC block history stays
+unchanged and the saved scheduling timezone determines the local Monday.
+
+No V1–13 changes, legacy conversion, historical session rewrites or cascade deletion.
+Fresh and populated H2 upgrades and repeated migration are tested; actual MySQL
+execution is a separate verification requirement. MySQL DDL rollback is not assumed.

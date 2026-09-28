@@ -41,6 +41,21 @@ public class SchedulingPipeline {
         String fingerprint = "generate:" + mapper.writeValueAsString(normalized);
         String replay = idempotency.replay(owner, key, fingerprint);
         if (replay != null) return replay;
+        var plan = preview(owner, normalized, Set.of(), List.of());
+        var placed = persist(owner, plan);
+        return idempotency.save(owner, key, fingerprint,
+                mapper.writeValueAsString(new Response(placed, plan.unplaced(), plan.importantTies())));
+    }
+
+    /** Shared planning entry point; recovery supplies only its local exclusions and proposed reservations. */
+    @Transactional
+    public SchedulingPlanner.Plan preview(Long owner, Request request, Set<Long> excludedBlocks, List<TimeInterval> reserved) {
+        return preview(owner,request,excludedBlocks,reserved,false);
+    }
+    @Transactional
+    public SchedulingPlanner.Plan preview(Long owner, Request request, Set<Long> excludedBlocks, List<TimeInterval> reserved,boolean reviewDeferred) {
+        var normalized=validate(request);
+        config.lockOwner(owner);
         // Lock commitments too: their metadata mutation path uses row locks rather than the owner lock.
         var owned = commitments.lockAllOwned(owner);
         var ids = owned.stream().map(c -> c.getId()).collect(java.util.stream.Collectors.toSet());
@@ -54,8 +69,9 @@ public class SchedulingPipeline {
         var risk = new HashSet<>(db.query("SELECT id FROM goals WHERE user_id=? AND planning_state='at_risk'", (r, n) -> r.getLong(1), owner));
         var ineligible = owned.stream().filter(c -> c.getGoalId() != null && !eligibleGoals.contains(c.getGoalId()))
                 .map(c -> c.getId()).collect(java.util.stream.Collectors.toSet());
-        var scheduled = new HashSet<>(db.query("SELECT commitment_id FROM scheduled_blocks WHERE user_id=? AND commitment_id IS NOT NULL AND state IN ('scheduled','active')",
-                (r, n) -> r.getLong(1), owner));
+        var scheduled = new HashSet<>(db.query("SELECT id,commitment_id FROM scheduled_blocks WHERE user_id=? AND commitment_id IS NOT NULL AND state IN ('scheduled','active')",
+                (r, n) -> excludedBlocks.contains(r.getLong(1)) ? null : r.getLong(2), owner));
+        scheduled.remove(null);
         scheduled.addAll(ineligible);
         var context = db.query("""
                 SELECT b.id,b.start_time,b.end_time,COALESCE(c.category_id,ri.category_id) category_id FROM scheduled_blocks b
@@ -65,8 +81,23 @@ public class SchedulingPipeline {
                 ORDER BY b.end_time,b.start_time,b.id
                 """, (r, n) -> new SlotSelection.Context(r.getObject("start_time", LocalDateTime.class).toInstant(ZoneOffset.UTC),
                 r.getObject("end_time", LocalDateTime.class).toInstant(ZoneOffset.UTC), r.getObject("category_id", Long.class), r.getLong("id")), owner, utc(normalized.endTime()));
-        var plan = new SchedulingPlanner().plan(owned, dependencies.findAllOwned(owner), risk, scheduled, minutes,
-                normalized.instructedCommitmentId(), foundation.snapshot(owner, normalized.startTime(), normalized.endTime()), context);
+        var calendar=foundation.snapshot(owner,normalized.startTime(),normalized.endTime());
+        if(!excludedBlocks.isEmpty()) {
+            var blocks=db.query("SELECT id,start_time,end_time FROM scheduled_blocks WHERE user_id=? AND state IN ('scheduled','active','completed') ORDER BY start_time,end_time,id",
+                (r,n)->excludedBlocks.contains(r.getLong(1)) ? null : new TimeInterval(r.getObject(2,LocalDateTime.class).toInstant(ZoneOffset.UTC),r.getObject(3,LocalDateTime.class).toInstant(ZoneOffset.UTC)),owner)
+                .stream().filter(Objects::nonNull).toList();
+            calendar=new SchedulingFoundationService.Snapshot(calendar.hours(),calendar.start(),calendar.end(),calendar.policy(),calendar.fixed(),blocks,calendar.expanded());
+            context=context.stream().filter(c -> !excludedBlocks.contains(c.id())).toList();
+        }
+        var occupied=new ArrayList<>(calendar.initialBlocks()); occupied.addAll(reserved);
+        calendar=new SchedulingFoundationService.Snapshot(calendar.hours(),calendar.start(),calendar.end(),calendar.policy(),calendar.fixed(),occupied,calendar.expanded());
+        return new SchedulingPlanner().plan(owned, dependencies.findAllOwned(owner), risk, scheduled, minutes,
+                normalized.instructedCommitmentId(), calendar, context,reviewDeferred);
+    }
+
+    /** Persist only a plan validated under the owner's transaction lock by this pipeline. */
+    @Transactional
+    public List<Placed> persist(Long owner, SchedulingPlanner.Plan plan) {
         var placed = new ArrayList<Placed>();
         for (var placement : plan.placements()) {
             var generated = new GeneratedKeyHolder();
@@ -84,8 +115,7 @@ public class SchedulingPipeline {
                     placement.placementReason(), mapper.writeValueAsString(placement)));
             placed.add(new Placed(id, placement));
         }
-        return idempotency.save(owner, key, fingerprint,
-                mapper.writeValueAsString(new Response(List.copyOf(placed), plan.unplaced(), plan.importantTies())));
+        return List.copyOf(placed);
     }
 
     private Request validate(Request r) {

@@ -88,6 +88,24 @@ public class CommitmentService {
         event(value, "task.progress_changed", Map.of("before", before, "after", snapshot(value)));
         transition(owner, id, value.getCurrentCompletionPct().compareTo(new java.math.BigDecimal("100")) == 0 ? "completed" : "ready", true, true);
     }
+    /** Retrospective belief report: does not fabricate a start or an ActualSession. */
+    @Transactional
+    public void reportRetrospectively(Long owner, Long id, java.math.BigDecimal percentage) {
+        Commitment value=repository.lockOwned(id,owner).orElseThrow(CommitmentException::missing);
+        var before=snapshot(value);
+        value.reportRetrospectively(percentage);
+        event(value,value.getWorkState().equals("completed") ? "task.completed" : "task.partial",
+            Map.of("before",before,"after",snapshot(value)));
+    }
+    @Transactional
+    public void recoveryDeferral(Long owner, Long id, boolean deferred, String reason) {
+        Commitment value=repository.lockOwned(id,owner).orElseThrow(CommitmentException::missing);
+        var before=snapshot(value);
+        if(deferred) value.deferForRecovery(); else value.reactivateForRecovery();
+        repository.flush();
+        events.appendAndFlush(Event.forEntity("commitment",id,deferred ? "task.deferred" : "task.reactivated","atlas",reason,
+            mapper.writeValueAsString(Map.of("before",before,"after",snapshot(value)))));
+    }
     private Commitment.Fields fields(Long owner, Commitment old, CommitmentRequest r) {
         Long milestone = r.milestoneId()==null && old!=null ? old.getMilestoneId() : id(r.milestoneId());
         Long goal = r.goalId()==null && old!=null ? old.getGoalId() : id(r.goalId());

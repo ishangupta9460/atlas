@@ -14,6 +14,8 @@ spring:
     locations: classpath:db/migration
 
 atlas:
+  recovery:
+    reconciliation-enabled: false
   jwt:
     secret: "test-only-atlas-jwt-secret-not-used-in-production-64-chars-padding"
     expiration-ms: 3600000

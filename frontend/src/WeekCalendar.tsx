@@ -14,7 +14,7 @@ export default function WeekCalendar({ data, days, busy, move, select }: {
   const items = timelineItems(data);
   async function drop(id: number, at: number) {
     const block = data.blocks.find(b => b.id === id && b.state === "scheduled");
-    if (!block || busy) return;
+    if (!block || !block.commitmentId || busy) return;
     await move(block, new Date(at).toISOString()); setMoving(null);
   }
   return <>
@@ -49,13 +49,13 @@ export default function WeekCalendar({ data, days, busy, move, select }: {
             {placed.map(({ item, top, height, lane }) => {
               const block = item.kind === "work" ? data.blocks.find(b => `work-${b.id}` === item.key) : undefined;
               return <article key={item.key} className={`week-block ${item.kind}`} style={{ top, height, overflow: "auto", pointerEvents: dragging || moving !== null ? "none" : undefined, left: `${lane / lanes.length * 100}%`, width: `${100 / lanes.length}%` }}
-                draggable={!busy && block?.state === "scheduled"}
+                draggable={!busy && block?.state === "scheduled" && !!block.commitmentId}
                 onDragStart={e => { if (block) { e.dataTransfer.setData("text/plain", String(block.id)); setDragging(true); } }}
                 onDragEnd={() => setDragging(false)}>
                 {item.taskId !== null ? <button className="text-button" onClick={() => select(item.taskId!)}>{item.title}</button> : <strong>{item.title}</strong>}
                 <span>{time(new Date(item.start).toISOString(), data.timezone)}–{time(new Date(item.end).toISOString(), data.timezone)}</span>
                 <span>{item.kind === "fixed" ? "Fixed" : block?.userMovedFlag ? "You chose this time · sticky" : "Scheduled by Atlas"}</span>
-                {block?.state === "scheduled" && <button disabled={busy} onClick={() => setMoving(block.id)}>Move {item.title}</button>}
+                {block?.state === "scheduled" && !!block.commitmentId && <button disabled={busy} onClick={() => setMoving(block.id)}>Move {item.title}</button>}
               </article>;
             })}
           </div>

@@ -28,6 +28,8 @@ spring:
     locations: classpath:db/migration
 
 atlas:
+  recovery:
+    confidence-threshold: ${ATLAS_GOAL_RISK_THRESHOLD:0.80}
   jwt:
     secret: ${ATLAS_JWT_SECRET}
     expiration-ms: ${ATLAS_JWT_EXPIRATION_MS:86400000}

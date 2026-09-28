@@ -6,6 +6,7 @@ import DependencyPanel from "./DependencyPanel";
 import TodayScreen from "./TodayScreen";
 import ScheduleTimeline from "./ScheduleTimeline";
 import { dayBounds, dayItems, timelineItems } from "./dayTimeline";
+import RecoveryPanel from "./RecoveryPanel";
 
 export default function ExecutionWorkspace({ client, view, navigate, initialTask, openGoal }: {
   client: Client; view: ExecutionView; navigate: (view: ExecutionView) => void;
@@ -20,6 +21,7 @@ export default function ExecutionWorkspace({ client, view, navigate, initialTask
   const [selected, setSelected] = useState<number | null>(initialTask);
   const [showCapture, setShowCapture] = useState(false);
   const [showLegacy, setShowLegacy] = useState(false);
+  const [showRecovery, setShowRecovery] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [finishedId, setFinishedId] = useState<number | null>(null);
   const [scheduleDay, setScheduleDay] = useState<string | null>(null);
@@ -73,7 +75,7 @@ export default function ExecutionWorkspace({ client, view, navigate, initialTask
   const tasks = data?.tasks ?? [];
   const taskFor = (block: Block) => tasks.find(t => t.id === block.commitmentId);
   const active = data?.blocks.find(b => b.state === "active");
-  const scheduled = (data?.blocks.filter(b => b.state === "scheduled" && tasks.some(t => t.id === b.commitmentId && t.workState === "ready")) ?? []).sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime) || a.id - b.id);
+  const scheduled = (data?.blocks.filter(b => b.state === "scheduled" && (!!b.recurringIntentionId || tasks.some(t => t.id === b.commitmentId && t.workState === "ready"))) ?? []).sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime) || a.id - b.id);
   const today = scheduled.filter(b => (sameDay(b.startTime, now) || Date.parse(b.startTime) <= now) && Date.parse(b.endTime) > now);
   const current = active ?? today.find(b => Date.parse(b.startTime) <= now);
   const next = today.filter(b => b.id !== current?.id);
@@ -124,7 +126,7 @@ export default function ExecutionWorkspace({ client, view, navigate, initialTask
     const task = taskFor(block);
     return <li className="row-item" key={block.id}>
       <div className="execution-row-time">{!sameDay(block.startTime, now) && <span>{date(block.startTime)}</span>}{time(block.startTime)}–{time(block.endTime)}<span className="hint">{Date.parse(block.endTime) <= now ? "Choose a new time" : Date.parse(block.startTime) > now ? `In ${duration(Date.parse(block.startTime) - now)}` : "Window open"}</span></div>
-      <div className="row-item-main"><h3>{task?.title ?? "Task"}</h3><p className="hint">{task?.goalTitle ?? "Independent task"}</p></div>
+      <div className="row-item-main"><h3>{task?.title ?? block.title ?? "Task"}</h3><p className="hint">{task?.goalTitle ?? "Independent task"}</p></div>
       <button onClick={() => setSelected(block.commitmentId)}>Task brief</button>
     </li>;
   }
@@ -135,7 +137,7 @@ export default function ExecutionWorkspace({ client, view, navigate, initialTask
       <div className="task-breadcrumb"><span className="active-task-label">{block.sessionState === "paused" ? "Paused · continue when ready" : block.sessionState === "running" ? "In progress" : "Your window is open"}</span><span className="hint">{time(block.startTime)}–{time(block.endTime)}</span></div>
       {task?.goalTitle && <button className="text-button goal-context" onClick={() => openGoal(task.goalId!)}>Goal · {task.goalTitle}</button>}
       {task?.goalState === "at_risk" && <span className="badge risk">Goal at risk</span>}
-      <h1>{task?.title}</h1>
+      <h1>{task?.title ?? block.title}</h1>
       <p className="completion-criterion">{task?.completionCriterion}</p>
       <p className="hint">Resources are not available for this task.</p>
       {task?.hardConsequence && <p className="hint">This task has a confirmed hard consequence.</p>}
@@ -160,7 +162,9 @@ export default function ExecutionWorkspace({ client, view, navigate, initialTask
     {error && <p role="alert" className="error">{error}</p>}
     {notice && <p role="status" className="notice">{notice}</p>}
     {loading && <p role="status" className="hint">Loading your work…</p>}
-    {!loading && data && <>
+    {data && <>
+      {!!data.riskGoalIds?.length && <aside className="execution-notice" role="status"><p>{data.riskGoalIds.length} goal(s) have an active risk review. No response changes your goal.</p><button onClick={() => { setShowRecovery(true); navigate("today"); }}>Review goal risk</button></aside>}
+      {(view === "today" || view === "schedule") && <><button className="text-button" onClick={() => setShowRecovery(v => !v)}>Recovery and weekly review</button>{showRecovery && <RecoveryPanel client={client} data={data} now={now} refresh={() => setRetry(n => n + 1)} />}</>}
       {view === "today" && <>
         <DayOverview data={data} now={now} />
         <div className="section-heading"><h2>Now</h2><button className="text-button" onClick={() => setShowCapture(true)}>Add a task</button></div>
@@ -281,8 +285,8 @@ function ReadyForm({ task, client, saved }: { task: Work; client: Client; saved:
   </form>;
 }
 
-function FinishForm({ task, busy, onCancel, onFinish }: { task: Work; busy: boolean; onCancel: () => void; onFinish: (report: string, percentage: number) => Promise<void> }) {
-  const [report, setReport] = useState(""); const [complete, setComplete] = useState(true); const [percentage, setPercentage] = useState(task.completionPct);
+function FinishForm({ task, busy, onCancel, onFinish }: { task?: Work; busy: boolean; onCancel: () => void; onFinish: (report: string, percentage: number) => Promise<void> }) {
+  const [report, setReport] = useState(""); const [complete, setComplete] = useState(true); const [percentage, setPercentage] = useState(task?.completionPct ?? 0);
   return <form className="panel finish-form" onSubmit={e => { e.preventDefault(); void onFinish(report.trim(), complete ? 100 : percentage); }}>
     <h2>Where did you get to?</h2><p className="hint">A few words is enough. Stopping here can still leave work for later.</p>
     <label htmlFor="session-report">What you accomplished</label><textarea id="session-report" autoFocus required maxLength={8000} value={report} onChange={e => setReport(e.target.value)} disabled={busy} />

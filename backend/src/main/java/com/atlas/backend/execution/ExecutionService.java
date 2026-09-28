@@ -26,11 +26,12 @@ public class ExecutionService {
     private final EventRepository events;
     private final ExecutionClock clock;
     private final ManualWindowValidator windows;
+    private final com.atlas.backend.recurringintention.RecurringIntentionResetJob resets;
     private final ObjectMapper mapper = new ObjectMapper();
     public ExecutionService(JdbcTemplate db, CommitmentRepository commitments, CommitmentService domain,
                             CommitmentDependencyRepository dependencies, EventRepository events, ExecutionIdempotency idempotency,
-                            ExecutionClock clock, ManualWindowValidator windows) {
-        this.clock=clock; this.windows=windows;
+                            ExecutionClock clock, ManualWindowValidator windows, com.atlas.backend.recurringintention.RecurringIntentionResetJob resets) {
+        this.clock=clock; this.windows=windows; this.resets=resets;
         this.idempotency=idempotency;
         this.db=db; this.commitments=commitments; this.domain=domain; this.dependencies=dependencies; this.events=events;
     }
@@ -40,14 +41,14 @@ public class ExecutionService {
         boolean hardConsequence) {}
     public record Block(Long id, Long commitmentId, Instant startTime, Instant endTime, String state,
         String placementReason, String sessionState, Instant actualStart, Instant runningSince, long activeMillis,
-        boolean userMovedFlag, Instant overrunPromptedAt) {}
+        boolean userMovedFlag, Instant overrunPromptedAt, Long recurringIntentionId, String title) {}
     public record Fixed(Long id, String title, Instant startTime, Instant endTime) {}
     public record History(Long blockId, Long commitmentId, String title, Instant startTime, Instant endTime,
         long activeMillis, String report, BigDecimal completionPct) {}
     public record Achievement(Long commitmentId, Long goalId, String title, BigDecimal completionPct) {}
     public record Progress(long plannedMillis, long executedMillis, List<Achievement> achieved) {}
     public record Overrun(boolean showPrompt, Instant promptedAt) {}
-    public record Workspace(Instant serverTime, String timezone, List<Work> tasks, List<Block> blocks, List<Fixed> fixed, List<History> history, Progress progress) {}
+    public record Workspace(Instant serverTime, String timezone, List<Work> tasks, List<Block> blocks, List<Fixed> fixed, List<History> history, Progress progress,List<Long> riskGoalIds) {}
 
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public Workspace workspace(Long owner) {
@@ -67,8 +68,9 @@ public class ExecutionService {
         List<Fixed> fixed = db.query("SELECT * FROM fixed_commitments WHERE user_id=? ORDER BY start_time,id",
             (r,n) -> new Fixed(r.getLong("id"),r.getString("title"),instant(r,"start_time"),instant(r,"end_time")),owner);
         List<History> history = db.query("""
-            SELECT a.*,b.commitment_id,c.title FROM actual_sessions a
-            JOIN scheduled_blocks b ON b.id=a.scheduled_block_id JOIN commitments c ON c.id=b.commitment_id
+            SELECT a.*,b.commitment_id,COALESCE(c.title,ri.title) title FROM actual_sessions a
+            JOIN scheduled_blocks b ON b.id=a.scheduled_block_id LEFT JOIN commitments c ON c.id=b.commitment_id
+            LEFT JOIN recurring_intentions ri ON ri.id=b.recurring_intention_id
             WHERE b.user_id=? ORDER BY a.actual_end DESC,a.id DESC
             """, (r,n) -> new History(r.getLong("scheduled_block_id"),r.getLong("commitment_id"),r.getString("title"),
                 instant(r,"actual_start"),instant(r,"actual_end"),r.getLong("active_millis"),
@@ -80,7 +82,8 @@ public class ExecutionService {
         long executed=history.stream().mapToLong(History::activeMillis).sum();
         var achieved=work.stream().filter(w -> !w.workState().equals("cancelled"))
             .map(w -> new Achievement(w.id(),w.goalId(),w.title(),w.completionPct())).toList();
-        return new Workspace(clock.now(),timezone,work,blocks,fixed,history,new Progress(planned,executed,achieved));
+        var riskGoals=db.query("SELECT g.id FROM goals g LEFT JOIN goal_risk_reviews r ON r.goal_id=g.id WHERE g.user_id=? AND g.lifecycle_state='active' AND g.planning_state<>'paused' AND (g.planning_state='at_risk' OR r.awaiting_response=TRUE) ORDER BY g.id",(r,n)->r.getLong(1),owner);
+        return new Workspace(clock.now(),timezone,work,blocks,fixed,history,new Progress(planned,executed,achieved),riskGoals);
     }
 
     @Transactional
@@ -93,7 +96,7 @@ public class ExecutionService {
         String fingerprint="move:"+id+":"+mapper.writeValueAsString(request);
         String replay=replay(owner,key,fingerprint); if(replay!=null) return replay;
         Block old=owned(owner,id);
-        if(!old.state().equals("scheduled") || !old.commitmentId().equals(request.commitmentId()))
+        if(!old.state().equals("scheduled") || !Objects.equals(old.commitmentId(),request.commitmentId()))
             throw ExecutionException.conflict("Only an unstarted window for this task can move.");
         db.update("UPDATE scheduled_blocks SET state='superseded' WHERE id=?",id);
         String result=place(owner,key,request,fingerprint);
@@ -138,12 +141,17 @@ public class ExecutionService {
         if (action.equals("start")) {
             if (!b.state().equals("scheduled") || b.sessionState()!=null) throw ExecutionException.conflict("This window has already been started.");
             if (now.isBefore(b.startTime()) || !now.isBefore(b.endTime())) throw ExecutionException.conflict("Start within the planned window. If it has passed, move it to a new time.");
-            ready(owner,b.commitmentId());
+            if(b.commitmentId()!=null) ready(owner,b.commitmentId());
+            else {
+                resets.reconcile(owner);
+                if(db.queryForObject("SELECT COUNT(*) FROM recurring_intentions r LEFT JOIN goals g ON g.id=r.goal_id WHERE r.id=? AND r.user_id=? AND (r.goal_id IS NULL OR (g.lifecycle_state='active' AND g.planning_state IN ('active','at_risk')))",Integer.class,b.recurringIntentionId(),owner)==0)
+                    throw ExecutionException.conflict("This recurring intention is not in active planning.");
+            }
             if (db.queryForObject("SELECT COUNT(*) FROM fixed_commitments WHERE user_id=? AND start_time<? AND end_time>?",Long.class,owner,utc(b.endTime()),utc(now))>0)
                 throw ExecutionException.conflict("A fixed commitment now overlaps this window. Choose another time; nothing has been moved.");
             if (db.queryForObject("SELECT COUNT(*) FROM focus_sessions s JOIN scheduled_blocks b ON b.id=s.scheduled_block_id WHERE b.user_id=? AND s.state<>'finished'",Long.class,owner)>0)
                 throw ExecutionException.conflict("Finish your current session before starting another task.");
-            domain.transition(owner,b.commitmentId(),"in_progress",true,true);
+            if(b.commitmentId()!=null) domain.transition(owner,b.commitmentId(),"in_progress",true,true);
             db.update("INSERT INTO focus_sessions(scheduled_block_id,state,actual_start,running_since,active_millis) VALUES(?,'running',?,?,0)",id,utc(now),utc(now));
             db.update("UPDATE scheduled_blocks SET state='active' WHERE id=?",id);
             event(id,"block.started",Map.of("at",now.toString()),null);
@@ -162,11 +170,20 @@ public class ExecutionService {
                 }
                 case "finish" -> {
                     if(report==null) throw new ExecutionException(400,"Tell Atlas what you accomplished.");
+                    if(b.recurringIntentionId()!=null) resets.reconcile(owner);
                     db.update("INSERT INTO actual_sessions(scheduled_block_id,actual_start,actual_end,active_millis,user_reported_outcome,completion_pct) VALUES(?,?,?,?,?,?)",
                         id,utc(b.actualStart()),utc(now),elapsed,report.report(),report.completionPct());
                     db.update("UPDATE focus_sessions SET state='finished',running_since=NULL,active_millis=? WHERE scheduled_block_id=?",elapsed,id);
                     db.update("UPDATE scheduled_blocks SET state='completed' WHERE id=?",id);
-                    domain.reportExecution(owner,b.commitmentId(),report.completionPct());
+                    if(b.commitmentId()!=null) domain.reportExecution(owner,b.commitmentId(),report.completionPct());
+                    else {
+                        var zone=ZoneId.of(db.queryForObject("SELECT timezone FROM scheduling_config WHERE user_id=?",String.class,owner));
+                        var week=now.atZone(zone).toLocalDate().with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+                        // Only count against the instance's own week. Late finishes cannot consume next week's target.
+                        if(!b.startTime().atZone(zone).toLocalDate().isBefore(week) && report.completionPct().compareTo(BigDecimal.valueOf(100))==0)
+                            db.update("UPDATE recurring_intentions SET current_week_remaining_count=GREATEST(0,current_week_remaining_count-1) WHERE user_id=? AND id=?",owner,b.recurringIntentionId());
+                        events.appendAndFlush(Event.forEntity("recurring_intention",b.recurringIntentionId(),report.completionPct().compareTo(BigDecimal.valueOf(100))==0 ? "recurring_intention.instance_completed" : "recurring_intention.instance_partial","user",null,mapper.writeValueAsString(Map.of("scheduledBlockId",id))));
+                    }
                     event(id,"block.completed",Map.of("at",now.toString()),null);
                 }
                 default -> throw new ExecutionException(400,"Unknown session action");
@@ -217,11 +234,11 @@ public class ExecutionService {
     private Block owned(Long owner,Long id) {
         return db.query(blockSelect()+" WHERE b.user_id=? AND b.id=?",this::block,owner,id).stream().findFirst().orElseThrow(ExecutionException::missing);
     }
-    private String blockSelect() { return "SELECT b.*,s.state session_state,s.actual_start,s.running_since,s.active_millis,s.overrun_prompted_at FROM scheduled_blocks b LEFT JOIN focus_sessions s ON s.scheduled_block_id=b.id"; }
+    private String blockSelect() { return "SELECT b.*,s.state session_state,s.actual_start,s.running_since,s.active_millis,s.overrun_prompted_at,COALESCE(c.title,ri.title) source_title FROM scheduled_blocks b LEFT JOIN focus_sessions s ON s.scheduled_block_id=b.id LEFT JOIN commitments c ON c.id=b.commitment_id LEFT JOIN recurring_intentions ri ON ri.id=b.recurring_intention_id"; }
     private Block block(ResultSet r,int n) throws SQLException {
-        return new Block(r.getLong("id"),r.getLong("commitment_id"),instant(r,"start_time"),instant(r,"end_time"),r.getString("state"),
+        return new Block(r.getLong("id"),r.getObject("commitment_id",Long.class),instant(r,"start_time"),instant(r,"end_time"),r.getString("state"),
             r.getString("placement_reason"),r.getString("session_state"),instant(r,"actual_start"),instant(r,"running_since"),r.getLong("active_millis"),
-            r.getBoolean("user_moved_flag"),instant(r,"overrun_prompted_at"));
+            r.getBoolean("user_moved_flag"),instant(r,"overrun_prompted_at"),r.getObject("recurring_intention_id",Long.class),r.getString("source_title"));
     }
     private static LocalDateTime utc(Instant i) { return LocalDateTime.ofInstant(i,ZoneOffset.UTC); }
     private static Instant instant(ResultSet r,String column) throws SQLException {

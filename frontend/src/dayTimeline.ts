@@ -5,7 +5,7 @@ export type DayItem = { key: string; title: string; start: number; end: number; 
 export function timelineItems(data: Workspace): DayItem[] {
   return [
     ...data.blocks.filter(b => b.state !== "superseded").map(b => ({
-      key: `work-${b.id}`, title: data.tasks.find(t => t.id === b.commitmentId)?.title ?? "Untitled task",
+      key: `work-${b.id}`, title: data.tasks.find(t => t.id === b.commitmentId)?.title ?? b.title ?? "Untitled task",
       start: Date.parse(b.startTime), end: Date.parse(b.endTime), kind: "work" as const,
       state: b.state, taskId: b.commitmentId, flexibility: data.tasks.find(t => t.id === b.commitmentId)?.flexibilityTier ?? "",
     })),
