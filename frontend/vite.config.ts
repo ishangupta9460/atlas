@@ -10,6 +10,8 @@ export default defineConfig({
       "/api": "http://localhost:8080",
       "/goals": "http://localhost:8080",
       "/roadmaps": "http://localhost:8080",
+      "/resources": "http://localhost:8080",
+      "/fixed-commitments": "http://localhost:8080",
       "/milestones": "http://localhost:8080",
       "/commitments": "http://localhost:8080",
       "/categories": "http://localhost:8080",

@@ -1,5 +1,41 @@
 # DECISION_LOG.md — Durable Decision Record
 
+### DEC-0023 — Chunk 5 resource feedback release scope
+
+- DATE: 2026-09-28; TYPE: Product; STATUS: Approved release scope; thresholds deferred.
+- AUTHORITY: Product-owner reply during Chunk 5 implementation: "Keep pattern detection disabled".
+- DECISION: ROAD-005 records single-resource reactions and immutable history. Repeated
+  reactions do not emit generalized observations or create preferences. The API/UI
+  explicitly report disabled pattern detection. The evidence thresholds in 06 section
+  3.2 / 05 section 6 remain unresolved; no numeric production policy is introduced.
+  Preference persistence/confirmation remains deferred to Chunk 7 as authorized by
+  the Chunk 5 brief. ROAD-005 is partial against the original three-tier story.
+- RELATED: DEC-0022; ROAD-005; MEM-001. Jira is unchanged.
+
+### DEC-0024 — Chunk 5 implementation boundaries
+
+- DATE: 2026-09-28; TYPE: Implementation; STATUS: Within authorized Chunk 5 scope.
+- AUTHORITY: Product-owner Chunk 5 brief and DEC-0001.
+- IMPLEMENTATION: V17 resources and ownership-constrained many-to-many attachments;
+  V18 owner-scoped uploads and revisioned review proposals. Existing owner locks,
+  transactional events and replay storage are reused. Replacement changes joins only.
+  Markdown/UTF-8 text are supported; PDF/Word and roadmap images return explicit
+  unsupported responses. No AI is called. Heuristics are implementation-tunable per 06.
+- Approval selects an existing owned Goal without a roadmap; preserves the existing
+  one-roadmap-per-Goal contract. Missing completion criteria produce Draft commitments;
+  importance/flexibility are supplied explicitly, never inferred. Nested milestone
+  review hierarchy maps to ordered domain milestones; tasks use the nearest milestone.
+  Resource nodes under tasks attach to those tasks; others remain in the owner library.
+  Notes remain in the review document and direct task notes become descriptions.
+- Screenshot OCR uses an optional local Tesseract executable, bounded to 20 seconds,
+  with visible manual transcription/entry fallback when unavailable. No date, timezone
+  or recurrence is guessed. Fixed entries require positive absolute intervals with
+  offsets at approval, use source=screenshot_import and preserve fixed semantics.
+- All new mutations require Idempotency-Key; changed payload reuse fails. Review
+  revisions reject stale edits/approval, and approval cannot be repeated with a new key.
+- API shapes and physical schema are recorded in 12/13; ROAD-007, memory, analytics,
+  notifications, polished UI and generic security hardening remain out of scope.
+
 ### DEC-0022 — Chunk 4 pattern-detection release scope
 
 - DATE: 2026-09-28; TYPE: Product; STATUS: Approved release scope; thresholds deferred.

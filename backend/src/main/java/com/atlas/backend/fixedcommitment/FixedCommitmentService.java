@@ -36,6 +36,17 @@ public class FixedCommitmentService {
         return FixedCommitmentResponse.from(repository.findByIdAndUserId(id, userId).orElseThrow(FixedCommitmentNotFoundException::new));
     }
 
+    /** Internal import boundary: called only after the owned proposal's approval has been validated. */
+    @Transactional
+    public FixedCommitmentResponse createFromApprovedImport(Long userId, String title, String startTime, String endTime) {
+        repository.lockOwner(userId);
+        FixedCommitment value = repository.save(FixedCommitment.create(userId, FixedCommitmentInput.title(payloadMapper.valueToTree(title)),
+                FixedCommitmentInput.time(payloadMapper.valueToTree(startTime), "startTime"), FixedCommitmentInput.time(payloadMapper.valueToTree(endTime), "endTime"),
+                "screenshot_import"));
+        writeEvent(value, "created", Map.of("after", snapshot(value)));
+        return FixedCommitmentResponse.from(value);
+    }
+
     @Transactional
     public FixedCommitmentResponse update(Long userId, Long id, UpdateFixedCommitmentRequest request) {
         repository.lockOwner(userId);

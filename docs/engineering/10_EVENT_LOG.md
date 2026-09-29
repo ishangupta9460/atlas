@@ -82,3 +82,18 @@ invoked with the required context; there is no public execution/progress API in 
 No task.progress_changed, deferred/reactivated or cancellation workflow is introduced.
 Legacy task.finished events remain untouched. Any event failure rolls back the full mutation
 and preceding event inserts. No generic Event schema redesign is required.
+
+## Chunk 5 event additions
+
+Resource events use entity_type=resource: resource.created, resource.updated,
+resource.deleted, resource.attached, resource.detached, resource.feedback_recorded.
+Attachment payloads carry commitmentId/resourceId and leave existing commitment
+history unchanged. Metadata/feedback payloads preserve the user's explicit action.
+
+Import events use entity_type=import_proposal: import.uploaded (kind/count only),
+import.reviewed (revision), import.roadmap_created (roadmapId), import.approved
+(created IDs and overlap IDs). Approval wraps existing task.created/task.ready and
+fixed_commitment.created events in its transaction. Review never emits committed
+work events. Rollback must remove all created entities, events and replay records.
+No file contents are logged. Resource/import event query exposure is deferred;
+existing event-query ownership allowlisting remains unchanged.

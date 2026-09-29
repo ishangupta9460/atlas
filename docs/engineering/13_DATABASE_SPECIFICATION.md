@@ -134,3 +134,27 @@ unchanged and the saved scheduling timezone determines the local Monday.
 No V1–13 changes, legacy conversion, historical session rewrites or cascade deletion.
 Fresh and populated H2 upgrades and repeated migration are tested; actual MySQL
 execution is a separate verification requirement. MySQL DDL rollback is not assumed.
+
+## Chunk 5 physical additions (V17/V18)
+
+- V17 adds `resources` (owner FK, type/title/reference/added_by, owner index),
+  `task_resource` (unique commitment/resource pair, composite owner FKs to both
+  entities, reverse-resource index), and `resource_feedback` (owner-composite FK,
+  checked single_reaction tier and liked/disliked signal, comment, UTC timestamp,
+  owner/time index). It adds only a unique `(id,user_id)` constraint to commitments;
+  no existing rows or columns are rewritten. Feedback history prevents deletion of
+  its referenced Resource; detach/replacement touches the join only.
+- V18 adds `import_proposals`: generated ID, owner FK/index, checked roadmap/fixed
+  kind and review/approved state, filename/media metadata, MEDIUMBLOB source bytes,
+  MEDIUMTEXT proposal/result JSON, revision and created_at. No Domain work rows exist
+  until approval. All approval Domain writes and event/replay writes share one DB
+  transaction; failed approval leaves the original review state intact.
+- Existing execution_idempotency is reused, including owner lock serialization.
+  No preference/memory tables are introduced (DEC-0023).
+- Both migrations are additive; transaction rollback is tested at runtime.
+  MySQL DDL is not assumed transactional: restore from backup / forward migration
+  is required for schema rollback. No historical migration is edited.
+
+V18 additionally widens execution_idempotency fingerprint/response_json from TEXT
+to MEDIUMTEXT, preserving existing payloads so a supported import larger than 64 KiB
+can be replayed on MySQL. Migration tests store/read a 100,000-character payload.
