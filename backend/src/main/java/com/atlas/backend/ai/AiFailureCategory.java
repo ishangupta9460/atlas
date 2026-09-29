@@ -1,0 +1,5 @@
+package com.atlas.backend.ai;
+
+public enum AiFailureCategory {
+    NOT_CONFIGURED, AUTHENTICATION, RATE_LIMITED, PROVIDER_REQUEST, PROVIDER_RESPONSE, VALIDATION
+}
