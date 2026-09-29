@@ -5,6 +5,7 @@ import GoalsScreen from "./GoalsScreen";
 import ExecutionWorkspace from "./ExecutionWorkspace";
 import { ExecutionView } from "./execution";
 import CategoriesScreen from "./CategoriesScreen";
+import ImportWorkspace from "./ImportWorkspace";
 
 const SESSION_KEY = "atlas.session";
 function savedToken() { try { return sessionStorage.getItem(SESSION_KEY); } catch { return null; } }
@@ -12,7 +13,7 @@ function persistToken(token: string | null) {
   try { if (token) sessionStorage.setItem(SESSION_KEY, token); else sessionStorage.removeItem(SESSION_KEY); } catch { /* In-memory sign-in still works when storage is unavailable. */ }
 }
 
-type Screen = ExecutionView | "goals" | "categories";
+type Screen = ExecutionView | "goals" | "categories" | "imports";
 
 export default function App() {
   const [token, setToken] = useState(savedToken);
@@ -79,6 +80,7 @@ export default function App() {
     { id: "goals",      label: "Goals" },
     { id: "schedule", label: "Schedule" },
     { id: "progress", label: "Progress" },
+    { id: "imports", label: "Import" },
   ];
 
   return (
@@ -112,6 +114,7 @@ export default function App() {
       <main className="workspace" key={user.id}>
         {screen === "goals"      ? <><div className="workspace-tools"><button className="text-button" onClick={() => setScreen("categories")}>Manage categories</button><button className="text-button" onClick={() => setScreen("today")}>Back to Today →</button></div><GoalsScreen client={client} initialGoalId={goalId} onWork={id => { setTaskId(id); setScreen("today"); }} /></> :
          screen === "categories" ? <CategoriesScreen client={client} /> :
+         screen === "imports" ? <ImportWorkspace client={client} onWork={id => { setTaskId(id); setScreen("today"); }} onGoal={id => { setGoalId(id); setScreen("goals"); }} /> :
                                    <ExecutionWorkspace client={client} view={screen} navigate={setScreen} initialTask={taskId} openGoal={id => { setGoalId(id); setScreen("goals"); }} />}
       </main>
     </div>

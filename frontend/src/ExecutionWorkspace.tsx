@@ -3,6 +3,7 @@ import { ApiError, Client, jsonBody, messageOf } from "./api";
 import { Block, Work, Workspace, ExecutionView, clock, date as formatDate, duration, elapsed, label, sameDay as isSameDay, time as formatTime } from "./execution";
 import { displayZone, localInput } from "./executionTime";
 import DependencyPanel from "./DependencyPanel";
+import ResourcePanel from "./ResourcePanel";
 import TodayScreen from "./TodayScreen";
 import ScheduleTimeline from "./ScheduleTimeline";
 import { dayBounds, dayItems, timelineItems } from "./dayTimeline";
@@ -139,7 +140,7 @@ export default function ExecutionWorkspace({ client, view, navigate, initialTask
       {task?.goalState === "at_risk" && <span className="badge risk">Goal at risk</span>}
       <h1>{task?.title ?? block.title}</h1>
       <p className="completion-criterion">{task?.completionCriterion}</p>
-      <p className="hint">Resources are not available for this task.</p>
+      {task && <ResourcePanel key={task.id} client={client} taskId={task.id} />}
       {task?.hardConsequence && <p className="hint">This task has a confirmed hard consequence.</p>}
       {block.sessionState && <>
         <div className="session-clock" aria-label="Active time">{clock(elapsed(block, now))}</div>
@@ -234,7 +235,7 @@ function TaskBrief({ task, timezone, blocks, client, now, busy, close, onPlace, 
     {task.goalTitle && <button className="text-button goal-context" onClick={() => openGoal(task.goalId!)}>Goal · {task.goalTitle} →</button>}
     {task.milestoneTitle && <p className="hint">Milestone · {task.milestoneTitle}</p>}
     {task.workState === "draft" ? <ReadyForm task={task} client={client} saved={refresh} /> : <><h2 className="brief-label">What done looks like</h2><p>{task.completionCriterion}</p></>}
-    <p className="hint">Resources are not available for this task.</p>
+    <ResourcePanel key={task.id} client={client} taskId={task.id} />
     {task.hardConsequence && <p className="hint">This task has a confirmed hard consequence.</p>}
     <p className="hint">{label(task.workState)} · {task.completionPct}% reported complete</p>
     <details className="disclosure" onToggle={e => setContextOpen(e.currentTarget.open)}><summary>More context</summary><dl className="context-grid"><dt>Importance</dt><dd>{label(task.importance)}</dd><dt>Flexibility</dt><dd>{label(task.flexibilityTier)}</dd><dt>Category</dt><dd>{task.categoryName ?? "None"}</dd><dt>Deadline</dt><dd>{task.deadline ? `${date(task.deadline)} · ${time(task.deadline)}` : "No deadline"}</dd></dl>{task.description && <p className="report-text">{task.description}</p>}{contextOpen && <TaskPreferences task={task} client={client} saved={refresh} />}</details>

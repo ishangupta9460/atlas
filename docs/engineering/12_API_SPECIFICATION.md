@@ -552,3 +552,103 @@ does not reactivate, delete or individually notify deferred tasks.
 Pattern observations are read-only, neutral statements. They appear only when all
 three explicit settings `atlas.recovery.pattern.minimum-weeks`, `minimum-instances`
 and `missed-ratio` are configured. There is deliberately no production default.
+
+## Chunk 5 — Roadmap imports and Resources (2026-09-28)
+
+This implements the previously reserved import/resource routes under the authorized
+Chunk 5 brief, DEC-0001, DEC-0023 and DEC-0024. Every route requires authentication;
+owner IDs are taken from the principal. Every new POST/PATCH/DELETE requires
+`Idempotency-Key` using the existing replay store: original result on exact replay,
+409 on changed payload; mutation, events and replay result share one transaction.
+New state is not created on GET. Foreign/missing objects return sanitized 404.
+
+### Resource contracts
+
+- GET `/resources` → owned resource array; GET `/resources/{id}` → one resource.
+- POST `/resources`, PATCH `/resources/{id}` take `{type,title,urlOrFileRef}`;
+  PATCH replaces these three metadata fields. Responses are
+  `{id,type,title,urlOrFileRef,addedBy}`. Types: video/pdf/doc/link/book/course;
+  title is required, max 255; reference required, max 2048. HTTP(S) URLs or labels
+  are stored, never fetched or interpreted as filesystem paths. `addedBy=user`.
+- DELETE `/resources/{id}` → `{}`. Attached resources or resources with feedback
+  return 409 to preserve references/history. Detaching does not delete resources.
+- GET `/commitments/{id}/resources` → attached resources. POST on that route takes
+  `{resourceId}` and returns the complete attachment array. Duplicate attach is a
+  no-op. DELETE `/commitments/{id}/resources/{resourceId}` detaches and returns array.
+- POST `/commitments/{id}/resources/{resourceId}/replace` takes `{resourceId}` for
+  the replacement. The old attachment must exist. Atomic detach/attach preserves
+  the Commitment row, progress, identity and existing history; no duplicate join.
+- POST `/resources/{id}/feedback` takes `{reaction: liked|disliked, comment?}`,
+  comment max 8000, returns `{tier:single_reaction,reaction,preferenceCreated:false}`.
+  GET on the same route returns `{id,reaction,comment,createdAt}` history.
+- GET `/resources/feedback-policy` returns `patternDetectionEnabled:false`,
+  `preferenceConfirmationAvailable:false` and reason. No confirmation endpoint
+  pretends to save preferences: DEC-0023 explicitly defers that capability.
+
+### Import contracts
+
+Both `/roadmaps/import` and `/fixed-commitments/import` have:
+
+- POST multipart `file`, optional `transcript` for screenshot fallback → review View.
+- GET collection → owned Views, latest first; GET `/{id}` → latest View.
+- PATCH `/{id}` takes `{revision,nodes}` (the complete ordered review tree).
+- POST `/{id}/approve` takes `{revision,goalId?,importance?,flexibilityTier?}`.
+
+View: `{id,kind,filename,state,revision,proposal:{nodes,warning},result,scheduledCount}`.
+States: `review`, `approved`; scheduledCount is a live read of created commitments'
+current scheduled/active windows, distinct from approval. Result before approval is
+null; after approval `{roadmapId,goalId,commitmentIds,resourceIds,fixedCommitmentIds,
+conflictingBlockIds}`. Approval increments no work schedule by itself. Repeated
+approval with another key returns 409. Stale revisions and editing approved imports
+return 409. Empty selections cannot be approved.
+
+`result.goalId` persists the actual approved Goal for roadmap imports so historical
+imports retain the Open Goal action after reload. Fixed imports return null. Older
+persisted results without this field deserialize as null; no Goal is created or
+inferred as a compatibility fallback.
+
+Node: `{id,parentId,type,title,text,included,completionCriterion,importance,
+flexibilityTier,resourceType,reference,resourceId,startTime,endTime,warning}`.
+IDs are positive and unique; parents must occur earlier. Maximum 500 nodes, title
+1..255 characters, text/criterion max 8000. Types are task/resource/optional/
+prerequisite/note/milestone/project (roadmap) or fixed (schedule). Excluding a node
+excludes descendants. Optional/prerequisite nodes begin excluded; explicit inclusion
+is opt-in / an assertion that the prerequisite still needs learning. Resource IDs
+are ownership-checked during review and again during approval.
+
+Roadmap approval requires an existing owned Goal without a roadmap (existing
+DOM-002 uniqueness remains). Importance/flexibility must come from explicit review
+choices. Missing criteria produce Draft commitments; complete definitions produce
+Ready through CommitmentService. Optional work uses Optional flexibility. Resources
+under tasks attach to the nearest task; other resources are saved to the library.
+Milestones preserve order; their nested review hierarchy is retained in the proposal
+while the existing domain uses ordered milestones. Notes remain review text and
+notes directly under tasks are included in their descriptions. Dependencies and
+effort are not inferred. Created work is available to the ordinary scheduler/UI.
+
+Text uploads: UTF-8 .md/.markdown/.txt, max 256 KiB, supported text media type or
+application/octet-stream. PDF/Word/roadmap images return 415. Empty binary uploads,
+invalid UTF-8/control data and unsafe filenames return 400; whitespace-only text
+is an empty review with a warning. Source bytes are stored in the owned DB record,
+never at a user-supplied path and never exposed through an unscoped file route.
+
+Screenshots: valid PNG/JPEG, max 2 MiB and 16 megapixels, validated signatures and
+decode. Local Tesseract is optional (`atlas.import.ocr-executable`, default
+`tesseract` on PATH), 20-second timeout; unavailable OCR yields a warning and editable
+empty review. Optional transcript is user-supplied text, not described as OCR output.
+The exact parsable schedule line is `title | ISO-offset-start | ISO-offset-end`;
+other OCR lines stay visible as ambiguous candidates. The user supplies missing
+dates/offsets, never guessed weekdays/recurrence. Approval calls the existing Fixed
+Commitment domain validation and event flow with `source=screenshot_import`.
+
+Overlap IDs are surfaced immediately after approval. POST
+`/fixed-commitments/import/{id}/recovery` takes `{fixedCommitmentId,items:[{blockId,
+totalWorkMinutes}]}`. It requires an approved owned import containing that fixed ID,
+then calls existing RecoveryService with the reservation's interval and explicit
+estimates. Recovery owns placement, tier classification, replay and separate approval
+for consequential changes. Active/recurring work requires user attention. Nothing
+in the import parser calls the scheduler or mutates the calendar before approval.
+
+UI: Import navigation entry uses ImportWorkspace; ResourcePanel is available in task
+briefs and Focus. ImportConflictReview connects approved fixed conflicts to recovery.
+No Today redesign or new scheduling algorithm is introduced.

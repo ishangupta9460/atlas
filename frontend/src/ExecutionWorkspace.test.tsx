@@ -29,6 +29,7 @@ beforeEach(() => {
     if (path === "/goals/10/roadmap") return response({ roadmap: { id: 1, milestones: [{ id: 1, title: "Foundation", order: 1 }] } });
     if (path === "/goals/10/commitments") return response({ commitments: [task, { ...task, id: 2, title: "Write the next chapter" }], nextCursor: null });
     if (path === "/categories") return response([]);
+    if (path === "/resources" || /^\/commitments\/\d+\/resources$/.test(path)) return response([]);
     if (path === "/commitments" && options.method === "POST") {
       const body = JSON.parse(String(options.body));
       const captured = { ...task, ...body, id: 3, goalId: null, goalTitle: null, workState: body.completionCriterion ? "ready" : "draft" };

@@ -150,7 +150,7 @@ For every Jira story, this document answers: what does it implement, which docum
 | `ROAD-003` | Resource entity + attachment | `02` §1.8, `06` §3 | DOM-003 | Fully specified — `02` §1.8, `06` §3 (reconstructed). |
 | `ROAD-004` | Resource replacement | `06` §3.1 | ROAD-003 | Fully specified — `06` §3.1 (reconstructed). |
 | `ROAD-005` | Resource feedback (3-tier) | `06` §3.2 | ROAD-003, MEM-001 (soft dep) | Fully specified — `06` §3.2 (reconstructed). |
-| `ROAD-006` | Screenshot fixed-schedule import | `06` §4 | DOM-006 | Partially specified — `06` §4 (reconstructed) documents the deterministic OCR/parse-to-Fixed-Commitment pipeline as EXPLICIT/STRONGLY INFERRED, but whether screenshot-imported Fixed Commitments pass through a Review/Approve-style gate before committing, or commit directly, is recorded there as an **OPEN PRODUCT DECISION** — `12` §5 currently assumes direct commit, reasoned but not confirmed. Resolve before implementing. |
+| `ROAD-006` | Screenshot fixed-schedule import | `06` §4 | DOM-006 | Approval gate resolved by DEC-0001: upload/OCR produces review candidates; explicit approval creates Fixed Commitments. Chunk 5 implements the bounded flow; see `12`. |
 | `ROAD-007` | AI-assisted ingestion enhancement | `06` §1.3, §2 | ROAD-001, AI-008 | Fully specified — `06` §1.3, §2 (reconstructed). |
 
 ### Memory/Preferences

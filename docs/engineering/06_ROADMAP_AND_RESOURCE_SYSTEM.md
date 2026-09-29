@@ -96,13 +96,29 @@ AI's role here (`07` §2 AI Non-Responsibilities): AI never converts a Tier-1 re
 3. Each extracted entry becomes a `fixed_commitments` row (`02` §1.11, `13` §1) with `source = screenshot_import`, always `flexibility_tier = Fixed` (this is invariant, not inferred — a timetable entry is definitionally a Fixed commitment per Master Spec §1.25).
 4. Any newly-created Fixed Commitment that overlaps an already-Scheduled Block for a lower-tier item triggers the recovery-trigger rule added to `05` §1 during the September 2026 review — that rule and this pipeline were designed for exactly this interaction, even though they were fixed in separate documents at different times.
 
-**[OPEN PRODUCT DECISION]** — **does step 3 above commit directly, or does it pass through a Review/Approve-style gate first (matching §1.4–1.5 above)?** Evidence points in two directions and does not resolve cleanly:
-- *For direct commit:* a calendar screenshot is a simple factual extraction (times and titles), not an interpretive structure requiring judgment calls the way roadmap ingestion's `optional`/`prerequisite` classification does. Master Spec §1.25 describes extraction and placement in one breath, without mentioning a review step, unlike §1.5's explicit multi-step pipeline language for roadmaps.
-- *For a review gate:* OCR is meaningfully more error-prone than parsing a well-formed PDF/Markdown document (misread times, merged cells, ambiguous day labels), and Non-Negotiable Rule 4 ("no task is scheduled from an imported roadmap without user review and approval") doesn't textually exclude Fixed Commitments — it says "imported roadmap," and this is arguably a different import type, but the underlying concern (don't let a parsing error silently become a calendar fact) applies at least as strongly here as it does to roadmap tasks.
+**[RESOLVED — DEC-0001]** Step 3 requires Review/Approve. Upload and OCR produce
+owner-scoped candidate state only. GET/PATCH expose review and edits; explicit
+POST approval creates Fixed Commitments with `source=screenshot_import`. Missing
+dates, offsets, ambiguous times and unsupported recurrence require user correction;
+no calendar fact is inferred from those gaps. See `12` Chunk 5 contract.
 
-`12` §5 (added in the September 2026 review, before this document existed to consult) assumed direct commit, reasoning only from the first bullet above. That assumption should be treated as provisional pending this product decision, not as settled. **This decision affects:** `12` §5's endpoint behavior (does `POST /fixed-commitments/import` return committed entities or a proposal needing a follow-up approve call, mirroring `/roadmaps/import`'s two-step shape), `14` §4 (reconstructed — whether a Review screen is needed for this flow), and `ROAD-006`'s acceptance criteria (currently silent on this question).
+Approved overlaps are surfaced with affected block IDs. Users supply explicit work
+estimates to the existing Recovery flow; consequential relocation still requires
+its separate approval. Active work is never silently moved.
 
 ## 5. Genuine Gaps / Requires Product Decision
 
-1. **Screenshot-import approval gate (§4 above)** — the primary open question this reconstruction surfaced.
+1. **Screenshot-import approval gate (§4 above)** — resolved by DEC-0001; approval is mandatory.
 2. **Deterministic parser's keyword-heuristic specifics** (§1.2) are described at the level Master Spec §1.5 supports ("headers, bullets, keyword heuristics") but the exact heuristic rules (which words trigger which classification) are an implementation-tunable detail, not a product decision — consistent with how `04` §2.5 treats its dependency-lookahead depth as tunable rather than requiring product sign-off. Not blocking.
+
+## Chunk 5 release boundaries (2026-09-28)
+
+The product-owner Chunk 5 brief permits Markdown/structured UTF-8 text first;
+PDF/Word and roadmap-image interpretation are deferred with explicit unsupported
+responses. Local screenshot OCR has a manual transcription/entry fallback. Parser
+heuristics are deterministic and tunable; dates, effort and preferences are not guessed.
+
+Per explicit product-owner decision DEC-0023, ROAD-005 Tier 1 ships while Tier 2
+pattern detection stays disabled. Repeated reactions remain history; no generalized
+observation is emitted. Tier 3 preference persistence is deferred to Chunk 7.
+This is an approved partial release of ROAD-005, not completion of its original AC.
